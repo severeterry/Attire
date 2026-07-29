@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23699973%22/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
@@ -48,30 +48,20 @@
   <section class="hero-network fade-section" id="top">
     <div class="hero-network-bg" aria-hidden="true">
       <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#699973" stop-opacity="0.55"/>
-            <stop offset="100%" stop-color="#699973" stop-opacity="0"/>
-          </radialGradient>
-          <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#B5723C" stop-opacity="0.35"/>
-            <stop offset="100%" stop-color="#B5723C" stop-opacity="0"/>
-          </radialGradient>
-        </defs>
-        <circle class="hero-glow" cx="1080" cy="460" r="260" fill="url(#glow1)"/>
-        <circle class="hero-glow" cx="1250" cy="620" r="180" fill="url(#glow2)" style="animation-delay:-3s;"/>
-        <g opacity="0.75">
-          <path class="flow-line" stroke="#7EA787" stroke-width="1.5" d="M-100 780 C 250 680, 420 900, 700 720 S 1150 480, 1600 560"/>
-          <path class="flow-line flow-line--slow" stroke="#699973" stroke-width="1" d="M-100 700 C 280 640, 400 820, 680 660 S 1180 420, 1600 480"/>
-          <path class="flow-line flow-line--slower" stroke="#5C7285" stroke-width="1" d="M-100 620 C 300 600, 380 760, 660 600 S 1200 380, 1600 420"/>
-          <path class="flow-line" stroke="#B5723C" stroke-width="1.3" d="M-100 520 C 320 460, 500 640, 760 500 S 1220 300, 1600 340"/>
-          <path class="flow-line flow-line--slow" stroke="#4F7358" stroke-width="1" d="M-100 860 C 260 800, 460 960, 740 820 S 1180 580, 1600 640"/>
-        </g>
+        <path class="wave-line" style="--wave-shift:360px; animation-duration:7s;" stroke="#B8923A" stroke-width="1.4" stroke-opacity="0.3" d="M-360.0,140.0 C-270.0,118.0 -270.0,118.0 -180.0,140.0 C-90.0,162.0 -90.0,162.0 0.0,140.0 C90.0,118.0 90.0,118.0 180.0,140.0 C270.0,162.0 270.0,162.0 360.0,140.0 C450.0,118.0 450.0,118.0 540.0,140.0 C630.0,162.0 630.0,162.0 720.0,140.0 C810.0,118.0 810.0,118.0 900.0,140.0 C990.0,162.0 990.0,162.0 1080.0,140.0 C1170.0,118.0 1170.0,118.0 1260.0,140.0 C1350.0,162.0 1350.0,162.0 1440.0,140.0 C1530.0,118.0 1530.0,118.0 1620.0,140.0 C1710.0,162.0 1710.0,162.0 1800.0,140.0"/>
+        <path class="wave-line" style="--wave-shift:440px; animation-duration:12s;" stroke="#EDE7DA" stroke-width="1" stroke-opacity="0.14" d="M-440.0,300.0 C-330.0,270.0 -330.0,270.0 -220.0,300.0 C-110.0,330.0 -110.0,330.0 0.0,300.0 C110.0,270.0 110.0,270.0 220.0,300.0 C330.0,330.0 330.0,330.0 440.0,300.0 C550.0,270.0 550.0,270.0 660.0,300.0 C770.0,330.0 770.0,330.0 880.0,300.0 C990.0,270.0 990.0,270.0 1100.0,300.0 C1210.0,330.0 1210.0,330.0 1320.0,300.0 C1430.0,270.0 1430.0,270.0 1540.0,300.0 C1650.0,330.0 1650.0,330.0 1760.0,300.0 C1870.0,270.0 1870.0,270.0 1980.0,300.0"/>
+        <path class="wave-line" style="--wave-shift:320px; animation-duration:6s;" stroke="#A63D2C" stroke-width="1.2" stroke-opacity="0.22" d="M-320.0,460.0 C-240.0,442.0 -240.0,442.0 -160.0,460.0 C-80.0,478.0 -80.0,478.0 0.0,460.0 C80.0,442.0 80.0,442.0 160.0,460.0 C240.0,478.0 240.0,478.0 320.0,460.0 C400.0,442.0 400.0,442.0 480.0,460.0 C560.0,478.0 560.0,478.0 640.0,460.0 C720.0,442.0 720.0,442.0 800.0,460.0 C880.0,478.0 880.0,478.0 960.0,460.0 C1040.0,442.0 1040.0,442.0 1120.0,460.0 C1200.0,478.0 1200.0,478.0 1280.0,460.0 C1360.0,442.0 1360.0,442.0 1440.0,460.0 C1520.0,478.0 1520.0,478.0 1600.0,460.0 C1680.0,442.0 1680.0,442.0 1760.0,460.0"/>
+        <path class="wave-line" style="--wave-shift:400px; animation-duration:10s;" stroke="#8A6A2E" stroke-width="1" stroke-opacity="0.24" d="M-400.0,620.0 C-300.0,594.0 -300.0,594.0 -200.0,620.0 C-100.0,646.0 -100.0,646.0 0.0,620.0 C100.0,594.0 100.0,594.0 200.0,620.0 C300.0,646.0 300.0,646.0 400.0,620.0 C500.0,594.0 500.0,594.0 600.0,620.0 C700.0,646.0 700.0,646.0 800.0,620.0 C900.0,594.0 900.0,594.0 1000.0,620.0 C1100.0,646.0 1100.0,646.0 1200.0,620.0 C1300.0,594.0 1300.0,594.0 1400.0,620.0 C1500.0,646.0 1500.0,646.0 1600.0,620.0 C1700.0,594.0 1700.0,594.0 1800.0,620.0 C1900.0,646.0 1900.0,646.0 2000.0,620.0"/>
+        <path class="wave-line" style="--wave-shift:300px; animation-duration:5s;" stroke="#EDE7DA" stroke-width="1" stroke-opacity="0.12" d="M-300.0,780.0 C-225.0,764.0 -225.0,764.0 -150.0,780.0 C-75.0,796.0 -75.0,796.0 0.0,780.0 C75.0,764.0 75.0,764.0 150.0,780.0 C225.0,796.0 225.0,796.0 300.0,780.0 C375.0,764.0 375.0,764.0 450.0,780.0 C525.0,796.0 525.0,796.0 600.0,780.0 C675.0,764.0 675.0,764.0 750.0,780.0 C825.0,796.0 825.0,796.0 900.0,780.0 C975.0,764.0 975.0,764.0 1050.0,780.0 C1125.0,796.0 1125.0,796.0 1200.0,780.0 C1275.0,764.0 1275.0,764.0 1350.0,780.0 C1425.0,796.0 1425.0,796.0 1500.0,780.0 C1575.0,764.0 1575.0,764.0 1650.0,780.0 C1725.0,796.0 1725.0,796.0 1800.0,780.0"/>
       </svg>
     </div>
 
     <div class="wrap hero-network-inner">
-      <div class="reveal">
+      <div class="reveal hero-network-copy">
+        <p class="trust-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+          108 organizations, independently verified
+        </p>
         <h1 class="hero-network-title">
           The network behind<br>
           NYC's <em>sustainable fashion</em> industry.
@@ -86,6 +76,34 @@
             Browse the Directory
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
+        </div>
+      </div>
+
+      <div class="swatch-fan reveal" aria-hidden="true">
+        <div class="swatch-card" data-cat="strategy" style="--r:-11deg; --x:-64px; --y:6px; z-index:1;">
+          <span class="swatch-code">LOT S&ndash;03</span>
+          <span class="swatch-name">Strategy &amp;<br>Expertise</span>
+          <span class="swatch-stamp">Verified</span>
+        </div>
+        <div class="swatch-card" data-cat="advocacy" style="--r:-4deg; --x:-24px; --y:-6px; z-index:2;">
+          <span class="swatch-code">LOT A&ndash;04</span>
+          <span class="swatch-name">Advocacy &amp;<br>Community</span>
+          <span class="swatch-stamp">Verified</span>
+        </div>
+        <div class="swatch-card" data-cat="materials" style="--r:3deg; --x:20px; --y:-10px; z-index:3;">
+          <span class="swatch-code">LOT M&ndash;01</span>
+          <span class="swatch-name">Materials &amp;<br>Making</span>
+          <span class="swatch-stamp">Verified</span>
+        </div>
+        <div class="swatch-card" data-cat="circularity" style="--r:10deg; --x:60px; --y:2px; z-index:4;">
+          <span class="swatch-code">LOT C&ndash;02</span>
+          <span class="swatch-name">Circularity &amp;<br>Disposal</span>
+          <span class="swatch-stamp">Verified</span>
+        </div>
+        <div class="swatch-card" data-cat="retail" style="--r:17deg; --x:96px; --y:16px; z-index:5;">
+          <span class="swatch-code">LOT R&ndash;05</span>
+          <span class="swatch-name">Retail &amp;<br>Creators</span>
+          <span class="swatch-stamp">Verified</span>
         </div>
       </div>
     </div>
@@ -115,19 +133,19 @@
       <svg viewBox="0 0 1440 480" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <radialGradient id="nycGlow1" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#699973" stop-opacity="0.45"/>
-            <stop offset="100%" stop-color="#699973" stop-opacity="0"/>
+            <stop offset="0%" stop-color="#4B5C43" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#4B5C43" stop-opacity="0"/>
           </radialGradient>
           <radialGradient id="nycGlow2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#B5723C" stop-opacity="0.4"/>
-            <stop offset="100%" stop-color="#B5723C" stop-opacity="0"/>
+            <stop offset="0%" stop-color="#B8923A" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#B8923A" stop-opacity="0"/>
           </radialGradient>
         </defs>
         <circle class="hero-glow" cx="1080" cy="160" r="240" fill="url(#nycGlow1)"/>
         <circle class="hero-glow" cx="320" cy="120" r="180" fill="url(#nycGlow2)" style="animation-delay:-3s;"/>
 
         <!-- back skyline -->
-        <g fill="#223828" opacity="0.7">
+        <g fill="#2C3324" opacity="0.7">
           <rect x="0" y="300" width="60" height="180"/>
           <rect x="70" y="260" width="50" height="220"/>
           <rect x="130" y="320" width="70" height="160"/>
@@ -153,7 +171,7 @@
         </g>
 
         <!-- front skyline -->
-        <g fill="#16241C">
+        <g fill="#1C1912">
           <rect x="20" y="360" width="70" height="120"/>
           <rect x="105" y="330" width="55" height="150"/>
           <rect x="175" y="380" width="65" height="100"/>
@@ -161,8 +179,8 @@
           <rect x="320" y="350" width="75" height="130"/>
           <rect x="410" y="200" width="60" height="280"/>
           <rect x="405" y="185" width="70" height="20"/>
-          <line x1="440" y1="185" x2="440" y2="150" stroke="#16241C" stroke-width="4"/>
-          <circle cx="440" cy="146" r="4" fill="#B5723C"/>
+          <line x1="440" y1="185" x2="440" y2="150" stroke="#1C1912" stroke-width="4"/>
+          <circle cx="440" cy="146" r="4" fill="#B8923A"/>
           <rect x="500" y="370" width="60" height="110"/>
           <rect x="575" y="320" width="50" height="160"/>
           <rect x="640" y="365" width="70" height="115"/>
@@ -179,7 +197,7 @@
         </g>
 
         <!-- lit windows -->
-        <g fill="#9FC1A0">
+        <g fill="#D8B45A">
           <rect x="30" y="380" width="4" height="6" class="nyc-window" style="animation-delay:-0.15s; animation-duration:4.1s;"/>
           <rect x="80" y="380" width="4" height="6" class="nyc-window" style="animation-delay:-4.06s; animation-duration:6.57s;"/>
           <rect x="55" y="406" width="4" height="6" class="nyc-window" style="animation-delay:-0.18s; animation-duration:3.87s;"/>
@@ -324,16 +342,16 @@
           that's grown out of Attire's NYC event series.
         </p>
         <ul class="check-list">
-          <li style="color:#EAF0E8;">Deal board &amp; sourcing RFP access
+          <li style="color:var(--color-dark-text);">Deal board &amp; sourcing RFP access
             <span class="check-list-sub">Post a sourcing need or respond to another member's request, all inside the network.</span>
           </li>
-          <li style="color:#EAF0E8;">Direct introduction requests to other members
+          <li style="color:var(--color-dark-text);">Direct introduction requests to other members
             <span class="check-list-sub">Skip the cold email and request a warm introduction instead.</span>
           </li>
-          <li style="color:#EAF0E8;">Group buying power on shipping, insurance &amp; more
+          <li style="color:var(--color-dark-text);">Group buying power on shipping, insurance &amp; more
             <span class="check-list-sub">Access rates negotiated across the whole membership on shared costs.</span>
           </li>
-          <li style="color:#EAF0E8;">Access to member events and the peer community
+          <li style="color:var(--color-dark-text);">Access to member events and the peer community
             <span class="check-list-sub">Get priority invitations to Attire's ongoing calendar of NYC meetups and mixers.</span>
           </li>
         </ul>
@@ -369,42 +387,42 @@
 
           <div class="network-node network-node--hub" style="left:50%; top:42.2%;">
             <span class="network-node-tile">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EAF0E8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="4" cy="6" r="1.6"/><circle cx="20" cy="6" r="1.6"/><circle cx="4" cy="18" r="1.6"/><circle cx="20" cy="18" r="1.6"/><path d="M12 12 4 6M12 12l8-6M12 12l-8 6M12 12l8 6"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F1ECDD" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="4" cy="6" r="1.6"/><circle cx="20" cy="6" r="1.6"/><circle cx="4" cy="18" r="1.6"/><circle cx="20" cy="18" r="1.6"/><path d="M12 12 4 6M12 12l8-6M12 12l-8 6M12 12l8 6"/></svg>
             </span>
             <span class="network-node-label">Attire</span>
           </div>
 
           <div class="network-node" style="left:16%; top:13.3%;">
             <span class="network-node-tile">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9FC1A0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D9BE86" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/></svg>
             </span>
             <span class="network-node-label">Materials<br>&amp; Making</span>
           </div>
 
           <div class="network-node" style="left:84%; top:13.3%;">
             <span class="network-node-tile">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E7B98C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 12a9 9 0 0 1 15-6.7L21 6"/><path d="M7 22l-4-4 4-4"/><path d="M21 12a9 9 0 0 1-15 6.7L3 18"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9FB08D" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 12a9 9 0 0 1 15-6.7L21 6"/><path d="M7 22l-4-4 4-4"/><path d="M21 12a9 9 0 0 1-15 6.7L3 18"/></svg>
             </span>
             <span class="network-node-label">Circularity<br>&amp; Disposal</span>
           </div>
 
           <div class="network-node" style="left:10%; top:68.9%;">
             <span class="network-node-tile">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A8BE" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C7A8BA" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             </span>
             <span class="network-node-label">Retail<br>&amp; Creators</span>
           </div>
 
           <div class="network-node" style="left:90%; top:68.9%;">
             <span class="network-node-tile">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9DB6C7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9FB2BA" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg>
             </span>
             <span class="network-node-label">Strategy<br>&amp; Expertise</span>
           </div>
 
           <div class="network-node" style="left:50%; top:82.2%;">
             <span class="network-node-tile">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E3C978" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D9A08E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </span>
             <span class="network-node-label">Advocacy<br>&amp; Community</span>
           </div>
@@ -425,9 +443,9 @@
           fashion brands, and NGOs.
         </p>
         <ul class="check-list">
-          <li style="color:#EAF0E8;">Searchable by category, location, and verification status</li>
-          <li style="color:#EAF0E8;">Every listing is independently verified</li>
-          <li style="color:#EAF0E8;">Free to browse. No commitment, no dues</li>
+          <li style="color:var(--color-dark-text);">Searchable by category, location, and verification status</li>
+          <li style="color:var(--color-dark-text);">Every listing is independently verified</li>
+          <li style="color:var(--color-dark-text);">Free to browse. No commitment, no dues</li>
         </ul>
         <a href="directory.html" class="btn btn-light btn-lg btn-centered-self">Browse the Directory</a>
       </div>

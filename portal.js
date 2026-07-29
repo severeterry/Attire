@@ -104,8 +104,10 @@
   }
 
   function typeBadge(type) {
-    if (type === "deal") return '<span class="cat-badge post-type-badge">Deal Board RFP</span>';
-    if (type === "sourcing") return '<span class="cat-badge post-type-badge">Sourcing</span>';
+    if (type === "deal")
+      return '<span class="post-type-flag post-type-flag--deal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v14M7 17l-4-4M7 17l4-4M17 21V7M17 7l4 4M17 7l-4 4"/></svg>Deal Board RFP</span>';
+    if (type === "sourcing")
+      return '<span class="post-type-flag post-type-flag--sourcing"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Sourcing</span>';
     return "";
   }
 
@@ -135,7 +137,8 @@
       .join("");
 
     return (
-      '<article class="post-card' + (isSpecial ? " is-rfp" : "") + '" data-id="' + post.id + '">' +
+      '<article class="post-card' + (isSpecial ? " is-" + post.type : "") + '" data-id="' + post.id + '">' +
+      (isSpecial ? '<div class="post-type-flag-slot">' + typeBadge(post.type) + "</div>" : "") +
       (post.reposted
         ? '<div class="post-repost-flag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> You reposted</div>'
         : "") +
@@ -144,7 +147,7 @@
       '<div>' +
       '<a class="post-author-name" href="' + profileLink(post.authorName) + '">' + escapeHtml(post.authorName) + "</a>" +
       '<div class="post-meta-row">' +
-      (isSpecial ? typeBadge(post.type) : post.category ? '<span class="cat-badge" data-cat="' + post.category + '">' + escapeHtml(labelForCategory(post.category)) + "</span>" : "") +
+      (post.category ? '<span class="cat-badge" data-cat="' + post.category + '">' + escapeHtml(labelForCategory(post.category)) + "</span>" : "") +
       '<span>&middot;</span><span>' + relativeTime(post.createdAt) + " ago</span>" +
       "</div></div></div>" +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
