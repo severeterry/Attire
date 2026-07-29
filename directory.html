@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Directory — Attire | NYC Sustainable Fashion Stakeholders</title>
+<meta name="description" content="Search NYC's sustainable fashion stakeholders — fabric mills, manufacturers, recyclers, consultants, and NGOs — by category, borough, and verification status.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23699973%22/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=30">
+</head>
+<body class="theme-green">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header site-header--dark" id="site-header">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="Attire home">
+      <span class="logo-mark" aria-hidden="true">Aa</span>
+      <span class="logo-word">Attire</span>
+    </a>
+
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="directory.html" class="is-active">Directory</a>
+    </nav>
+
+    <div class="header-actions">
+      <a href="member-portal.html" class="login-link" data-action="member-login">Member Log In</a>
+      <a href="membership.html" class="btn btn-primary btn-sm header-cta">Apply for Membership</a>
+      <button class="icon-btn nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile">
+    <a href="directory.html">Directory</a>
+    <a href="member-portal.html" data-action="member-login">Member Log In</a>
+    <a href="membership.html" class="btn btn-primary btn-block">Apply for Membership</a>
+  </nav>
+</header>
+
+<main id="main">
+
+  <section class="section section-sm" style="padding-bottom:0;">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="section-kicker">The Directory</p>
+        <h1 class="section-title">NYC sustainable fashion stakeholders</h1>
+        <p class="section-lede">
+          Search fabric sourcers, manufacturers, disposal and recycling companies, consultants, NGOs and many more across New York City.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-sm" style="padding-top:var(--space-3);">
+    <div class="wrap">
+
+      <div class="directory-toolbar reveal">
+        <div class="search-row">
+          <div class="search-input-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="search-input" placeholder="Search by name or keyword&hellip;" aria-label="Search the directory">
+          </div>
+          <select class="filter-select" id="borough-select" aria-label="Filter by borough">
+            <option value="all">All Boroughs</option>
+            <option value="Manhattan">Manhattan</option>
+            <option value="Brooklyn">Brooklyn</option>
+            <option value="Queens">Queens</option>
+            <option value="Staten Island">Staten Island</option>
+            <option value="Bronx">Bronx</option>
+          </select>
+          <label class="verified-toggle">
+            <input type="checkbox" id="verified-only">
+            Verified only
+          </label>
+        </div>
+        <div class="pill-row" id="category-pills" role="group" aria-label="Filter by category">
+          <button type="button" class="cat-pill" data-cat="all" aria-pressed="true">All Categories</button>
+          <button type="button" class="cat-pill" data-cat="materials" aria-pressed="false">Materials &amp; Making</button>
+          <button type="button" class="cat-pill" data-cat="circularity" aria-pressed="false">Circularity &amp; Disposal</button>
+          <button type="button" class="cat-pill" data-cat="strategy" aria-pressed="false">Strategy &amp; Expertise</button>
+          <button type="button" class="cat-pill" data-cat="advocacy" aria-pressed="false">Advocacy &amp; Community</button>
+          <button type="button" class="cat-pill" data-cat="retail" aria-pressed="false">Retail &amp; Creators</button>
+        </div>
+      </div>
+
+      <div class="results-bar">
+        <p class="results-count" id="results-count">Showing <strong>27</strong> of 27 organizations</p>
+        <button type="button" class="clear-filters" id="clear-filters">Clear all filters</button>
+      </div>
+
+      <div class="directory-grid" id="directory-grid"></div>
+
+      <div class="empty-state" id="empty-state" hidden>
+        <h3>No organizations match those filters</h3>
+        <p>Try clearing a filter, or search a different term.</p>
+        <button type="button" class="btn btn-outline btn-sm" id="empty-clear">Clear all filters</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section newsletter">
+    <div class="wrap newsletter-inner reveal">
+      <div>
+        <h2 class="section-title">Know someone who should be listed?</h2>
+        <p class="section-lede">Suggest a stakeholder for the directory, or apply for full membership.</p>
+      </div>
+      <a href="membership.html" class="btn btn-light btn-lg">Apply for Membership</a>
+    </div>
+  </section>
+
+</main>
+
+<!-- Listing detail modal -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title" id="modal-panel">
+    <button type="button" class="modal-close" id="modal-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="modal-head">
+      <div class="modal-badges" id="modal-badges"></div>
+      <h2 id="modal-title"></h2>
+      <p class="modal-sub" id="modal-sub"></p>
+    </div>
+    <p class="modal-desc" id="modal-desc"></p>
+    <div class="modal-note" id="modal-note" hidden></div>
+    <div class="modal-gate">
+      <p><strong>Contact details, certifications, and direct introduction requests are available to Attire members.</strong></p>
+      <a href="membership.html" class="btn btn-primary btn-sm">Apply for Membership</a>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <a href="index.html" class="logo logo-footer" aria-label="Attire home">
+        <span class="logo-mark" aria-hidden="true">Aa</span>
+        <span class="logo-word">Attire</span>
+      </a>
+      <p>Same Fashion. New Age.<br>NYC's sustainable fashion directory &amp; membership network.</p>
+      <div class="social-row">
+        <a href="#" aria-label="Attire on LinkedIn" class="icon-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 10v7M7 7.5v.01M11 17v-4.5a2 2 0 0 1 4 0V17M11 12.5V17"/></svg>
+        </a>
+        <a href="#" aria-label="Attire on Instagram" class="icon-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <nav class="footer-col" aria-label="Directory">
+      <p class="footer-heading">Directory</p>
+      <a href="directory.html?category=materials">Materials &amp; Making</a>
+      <a href="directory.html?category=circularity">Circularity &amp; Disposal</a>
+      <a href="directory.html?category=strategy">Strategy &amp; Expertise</a>
+      <a href="directory.html?category=advocacy">Advocacy &amp; Community</a>
+      <a href="directory.html?category=retail">Retail &amp; Creators</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="Membership">
+      <p class="footer-heading">Membership</p>
+      <a href="membership.html">Benefits</a>
+      <a href="membership.html#tiers">Dues &amp; Tiers</a>
+      <a href="membership.html#apply">Apply Now</a>
+    </nav>
+
+    <nav class="footer-col" aria-label="Company">
+      <p class="footer-heading">Company</p>
+      <a href="mailto:hello@attirenyc.org">Contact</a>
+    </nav>
+  </div>
+  <div class="wrap footer-bottom">
+    <p>© 2026 Attire NYC. All rights reserved.</p>
+    <div class="footer-legal">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<!-- Member login modal -->
+<div class="modal-backdrop" id="login-modal-backdrop">
+  <div class="modal-panel login-modal-panel" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+    <button type="button" class="modal-close" id="login-modal-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="modal-head">
+      <h2 id="login-modal-title">Member Log In</h2>
+      <p class="modal-sub">Log in with your Attire member credentials.</p>
+    </div>
+    <form id="login-form">
+      <div class="form-field">
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" required autocomplete="username">
+      </div>
+      <div class="form-field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" required autocomplete="current-password">
+      </div>
+      <p class="login-error" id="login-error" hidden>Incorrect username or password.</p>
+      <button type="submit" class="btn btn-primary btn-block">Log In</button>
+      <div class="login-demo-accounts">
+        <p class="login-hint-label">Demo logins</p>
+        <ul>
+          <li><strong>free_demo</strong> / free123 <span>&mdash; Free plan</span></li>
+          <li><strong>member_demo</strong> / member123 <span>&mdash; Individual plan</span></li>
+          <li><strong>org_demo</strong> / org123 <span>&mdash; Organization plan</span></li>
+        </ul>
+        <p class="login-hint">Or <a href="membership.html#apply">apply for membership</a> to create your own.</p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="data.js?v=1"></script>
+<script src="script.js?v=2"></script>
+<script src="directory.js?v=1"></script>
+<script src="auth.js?v=2"></script>
+</body>
+</html>
