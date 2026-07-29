@@ -60,14 +60,31 @@
   function setCredentials(username, password) {
     try { localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ username: username, password: password })); } catch (e) {}
   }
+  function saveProfile(full) {
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(full)); } catch (e) {}
+  }
+
   function applyProfilePreset(preset) {
-    var full = {
+    saveProfile({
       name: preset.name, orgName: preset.orgName, category: preset.category, borough: preset.borough,
       bio: preset.bio, email: preset.email, website: preset.website, practices: preset.practices,
       avatar: preset.avatar, memberSince: preset.memberSince, tier: preset.tier,
       settings: DEFAULT_SETTINGS,
-    };
-    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(full)); } catch (e) {}
+    });
+  }
+
+  // Called once a new applicant has been accepted, chosen a plan/term, and
+  // created their login — builds their real profile from the application
+  // form plus the billing they just confirmed.
+  function createApplicantProfile(fields, billing) {
+    billing.startedAt = Date.now();
+    saveProfile({
+      name: fields.contactName, orgName: fields.orgName, category: fields.category, borough: fields.borough,
+      bio: fields.pitch, email: fields.email, website: fields.website, practices: [],
+      avatar: null, memberSince: String(new Date().getFullYear()), tier: billing.tier,
+      billing: billing,
+      settings: DEFAULT_SETTINGS,
+    });
   }
 
   window.AttireAuth = {
@@ -76,6 +93,7 @@
     clearAuth: clearAuth,
     getCredentials: getCredentials,
     setCredentials: setCredentials,
+    createApplicantProfile: createApplicantProfile,
   };
 
   document.addEventListener("DOMContentLoaded", function () {

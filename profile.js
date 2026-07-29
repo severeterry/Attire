@@ -187,11 +187,36 @@
   function renderPlanManagement() {
     var tier = profile.tier || "individual";
     var planNames = { free: "Free Plan", individual: "Individual / Affiliate", organization: "Organization Membership" };
-    document.getElementById("manage-plan-current").innerHTML = "You're on the <strong>" + planNames[tier] + "</strong>.";
+    var billing = profile.billing;
+    var hasPrepay = !!(billing && billing.termMonths > 1);
+
+    var line = "You're on the <strong>" + planNames[tier] + "</strong>.";
+    if (billing && billing.termMonths) {
+      if (billing.status === "trial") {
+        line += " Your first " + billing.freeMonths + " months are free, then $" + billing.monthlyRate + "/mo" +
+          (hasPrepay ? " for " + billing.termMonths + " months ($" + billing.totalDue + " total)" : ", billed monthly") + ".";
+      } else if (hasPrepay) {
+        line += " Billed $" + billing.monthlyRate + "/mo on your " + billing.termMonths + "-month plan.";
+      }
+    }
+    if (profile.accountCredit) {
+      line += ' <span class="manage-plan-credit">You have $' + profile.accountCredit + " in account credit.</span>";
+    }
+    document.getElementById("manage-plan-current").innerHTML = line;
 
     var upgradeBtn = document.getElementById("upgrade-plan-btn");
     var cancelBtn = document.getElementById("cancel-subscription-btn");
     document.getElementById("cancel-confirm").hidden = true;
+
+    var refundChoice = document.getElementById("cancel-refund-choice");
+    var confirmCopy = document.getElementById("cancel-confirm-copy");
+    if (refundChoice && confirmCopy) {
+      refundChoice.hidden = !hasPrepay;
+      confirmCopy.textContent = hasPrepay
+        ? "Cancel your subscription? You've prepaid $" + billing.totalDue + " for " + billing.termMonths +
+          " months at $" + billing.monthlyRate + "/mo. Choose how you'd like to handle the unused balance below."
+        : "Cancel your subscription? You'll lose deal board access, direct messaging, and event invitations at the end of this billing period, and drop to the Free Plan.";
+    }
 
     if (tier === "organization") {
       upgradeBtn.hidden = true;
@@ -400,8 +425,19 @@
       document.getElementById("cancel-confirm").hidden = true;
     });
     document.getElementById("cancel-confirm-yes").addEventListener("click", function () {
+      var billing = profile.billing;
+      if (billing && billing.termMonths > 1) {
+        var modeInput = document.querySelector('input[name="cancel-refund-mode"]:checked');
+        var mode = modeInput ? modeInput.value : "refund";
+        if (mode === "credit") {
+          profile.accountCredit = (profile.accountCredit || 0) + billing.totalDue;
+        }
+        // "refund" mode: the prepaid balance goes back to the original payment method — nothing to track locally.
+      }
       profile.tier = "free";
+      profile.billing = null;
       savePortalProfile(profile);
+      document.getElementById("cancel-confirm").hidden = true;
       renderPlanManagement();
     });
 

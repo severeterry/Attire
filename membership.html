@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=30">
+<link rel="stylesheet" href="styles.css?v=31">
 </head>
 <body class="theme-green">
 
@@ -211,7 +211,7 @@
           <p class="tier-audience">For mills, manufacturers, recyclers, consultancies, brands, and NGOs.</p>
           <p class="tier-price">$18/Monthly <span> — Cancel anytime</span></p>
           <ul class="tier-list">
-            <li>Enhanced organization profile listing</li>
+            <li>Enhanced public profile listing</li>
             <li>Full site &amp; directory browsing access</li>
             <li>Deal board &amp; sourcing RFP access</li>
             <li>Group buying power on shipping, insurance &amp; sourcing costs</li>
@@ -225,10 +225,10 @@
           <p class="tier-audience">For designers, consultants, students, and independent stakeholders.</p>
           <p class="tier-price">$15/Monthly <span> — Cancel anytime</span></p>
           <ul class="tier-list">
-            <li>Personal profile listing</li>
+            <li>Personal public profile listing</li>
             <li>Full site &amp; directory browsing access</li>
-            <li>Deal board &amp; sourcing RFP access</li>
-            <li class="is-locked">Group buying power on shipping, insurance &amp; sourcing costs</li>
+            <li>Limited deal board &amp; sourcing RFP access</li>
+            <li>Group buying power on shipping, insurance &amp; sourcing costs</li>
             <li>3 direct introduction requests a month</li>
             <li>Invitations to member events</li>
           </ul>
@@ -309,11 +309,93 @@
           <p class="section-lede">We review applications on a rolling basis and will follow up by email.</p>
         </div>
 
+        <div class="form-success" id="plan-setup" style="text-align:left;">
+          <div class="success-icon" style="margin:0 0 var(--space-2);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h3 class="section-title" style="font-size:1.4rem;">You're approved &mdash; choose your plan</h3>
+          <p class="section-lede">Your first <strong>6 months are free</strong>. Pick how you'd like to bill after that &mdash; longer terms lock in a lower rate.</p>
+
+          <div class="plan-choice-row" role="radiogroup" aria-label="Choose a plan" style="margin-top: var(--space-3);">
+            <label class="plan-choice">
+              <input type="radio" name="signup-plan" value="individual" checked>
+              <span class="plan-choice-name">Individual / Affiliate</span>
+              <span class="plan-choice-price">$15<small>/month</small></span>
+              <span class="plan-choice-note">Deal board, sourcing, direct intros, event invites</span>
+            </label>
+            <label class="plan-choice">
+              <input type="radio" name="signup-plan" value="organization">
+              <span class="plan-choice-name">Organization Membership</span>
+              <span class="plan-choice-price">$18<small>/month</small></span>
+              <span class="plan-choice-note">Everything in Individual, plus group buying power</span>
+            </label>
+          </div>
+
+          <div class="term-choice-row" role="radiogroup" aria-label="Choose a billing term after your free period" style="margin-top: var(--space-2);">
+            <label class="term-choice">
+              <input type="radio" name="signup-term" value="1" checked>
+              <span class="term-choice-len">1 mo</span>
+              <span class="term-choice-rate">$15<small>/mo</small></span>
+              <span class="term-choice-save">&nbsp;</span>
+            </label>
+            <label class="term-choice">
+              <input type="radio" name="signup-term" value="6">
+              <span class="term-choice-len">6 mo</span>
+              <span class="term-choice-rate">$14<small>/mo</small></span>
+              <span class="term-choice-save">Save 7%</span>
+            </label>
+            <label class="term-choice">
+              <input type="radio" name="signup-term" value="12">
+              <span class="term-choice-len">12 mo</span>
+              <span class="term-choice-rate">$12<small>/mo</small></span>
+              <span class="term-choice-save">Save 20%</span>
+            </label>
+            <label class="term-choice">
+              <input type="radio" name="signup-term" value="18">
+              <span class="term-choice-len">18 mo</span>
+              <span class="term-choice-rate">$11<small>/mo</small></span>
+              <span class="term-choice-save">Save 27%</span>
+            </label>
+            <label class="term-choice">
+              <input type="radio" name="signup-term" value="24">
+              <span class="term-choice-len">24 mo</span>
+              <span class="term-choice-rate">$10<small>/mo</small></span>
+              <span class="term-choice-save">Save 33%</span>
+            </label>
+          </div>
+
+          <div class="plan-summary-box" id="plan-summary-box"></div>
+
+          <form id="signup-payment-form">
+            <div class="form-field full">
+              <label for="signup-card-name">Name on card</label>
+              <input type="text" id="signup-card-name" required autocomplete="cc-name">
+            </div>
+            <div class="form-grid">
+              <div class="form-field full">
+                <label for="signup-card-number">Card number</label>
+                <input type="text" id="signup-card-number" inputmode="numeric" placeholder="4242 4242 4242 4242" maxlength="19" required autocomplete="cc-number">
+              </div>
+              <div class="form-field">
+                <label for="signup-card-expiry">Expiry (MM/YY)</label>
+                <input type="text" id="signup-card-expiry" placeholder="MM/YY" maxlength="5" required autocomplete="cc-exp">
+              </div>
+              <div class="form-field">
+                <label for="signup-card-cvc">CVC</label>
+                <input type="text" id="signup-card-cvc" inputmode="numeric" placeholder="123" maxlength="4" required autocomplete="cc-csc">
+              </div>
+            </div>
+            <p class="settings-note">This is a demo checkout &mdash; no real payment is processed or stored. You won't be charged until your free 6 months end.</p>
+            <p class="settings-note"><strong>Cancellation policy:</strong> if you cancel during a paid term, choose a refund for the unused months or credit toward a shorter plan.</p>
+            <button type="submit" class="btn btn-primary btn-lg btn-block">Confirm plan &amp; continue</button>
+          </form>
+        </div>
+
         <div class="form-success" id="account-setup" style="text-align:left;">
           <div class="success-icon" style="margin:0 0 var(--space-2);">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           </div>
-          <h3 class="section-title" style="font-size:1.4rem;">You're approved &mdash; set up your account</h3>
+          <h3 class="section-title" style="font-size:1.4rem;">Almost there &mdash; create your login</h3>
           <p class="section-lede">Create a username and password to access the member portal.</p>
           <form id="credentials-form">
             <div class="form-field">
@@ -421,7 +503,7 @@
 </div>
 
 <script src="script.js?v=2"></script>
-<script src="membership.js?v=2"></script>
-<script src="auth.js?v=2"></script>
+<script src="membership.js?v=3"></script>
+<script src="auth.js?v=3"></script>
 </body>
 </html>

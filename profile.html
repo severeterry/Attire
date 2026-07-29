@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=30">
+<link rel="stylesheet" href="styles.css?v=31">
 </head>
 <body class="portal-page">
 
@@ -227,10 +227,24 @@
             <button type="button" class="btn btn-outline btn-sm" id="cancel-subscription-btn" hidden>Cancel Subscription</button>
           </div>
           <div class="cancel-confirm" id="cancel-confirm" hidden>
-            <p>Cancel your subscription? You'll lose deal board access, direct messaging, and event invitations at the end of this billing period, and drop to the Free Plan.</p>
+            <p id="cancel-confirm-copy">Cancel your subscription? You'll lose deal board access, direct messaging, and event invitations at the end of this billing period, and drop to the Free Plan.</p>
+
+            <div class="cancel-refund-choice" id="cancel-refund-choice" hidden role="radiogroup" aria-label="How would you like to handle your remaining prepaid balance?">
+              <label class="cancel-refund-option">
+                <input type="radio" name="cancel-refund-mode" value="refund" checked>
+                <span class="cancel-refund-title">Refund unused months</span>
+                <span class="cancel-refund-note">The unused portion of your prepaid term goes back to your original payment method.</span>
+              </label>
+              <label class="cancel-refund-option">
+                <input type="radio" name="cancel-refund-mode" value="credit">
+                <span class="cancel-refund-title">Credit toward a shorter plan</span>
+                <span class="cancel-refund-note">Apply the unused balance as account credit instead of a refund.</span>
+              </label>
+            </div>
+
             <div class="cancel-confirm-actions">
               <button type="button" class="btn btn-outline btn-sm" id="cancel-confirm-no">Never mind</button>
-              <button type="button" class="btn btn-primary btn-sm" id="cancel-confirm-yes">Yes, Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" id="cancel-confirm-yes">Confirm Cancellation</button>
             </div>
           </div>
         </div>
@@ -334,8 +348,8 @@
 <script src="portal-data.js?v=2"></script>
 <script src="profile-data.js?v=2"></script>
 <script src="script.js?v=2"></script>
-<script src="auth.js?v=2"></script>
+<script src="auth.js?v=3"></script>
 <script src="shell.js?v=1"></script>
-<script src="profile.js?v=5"></script>
+<script src="profile.js?v=6"></script>
 </body>
 </html>
