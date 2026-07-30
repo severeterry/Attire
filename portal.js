@@ -5,6 +5,24 @@
   var profile = null;
   var dealPosts = [];
   var filterState = { sort: "newest" };
+  var responseCounts = {};
+
+  // Response counts are public (visible to any viewer of the listing) even
+  // though the thread content behind them stays private to its participants
+  // — get_rfp_response_counts only ever returns a count, never thread rows.
+  async function fetchResponseCounts(postIds) {
+    if (!postIds.length) return {};
+    var res = await sb.rpc("get_rfp_response_counts", { p_rfp_post_ids: postIds });
+    if (res.error) return {};
+    var map = {};
+    (res.data || []).forEach(function (r) { map[r.rfp_post_id] = r.response_count; });
+    return map;
+  }
+
+  function responseCountLabel(postId) {
+    var count = responseCounts[postId] || 0;
+    return count + (count === 1 ? " response" : " responses");
+  }
 
   function initials(name) {
     var parts = name.trim().split(/\s+/);
@@ -77,7 +95,8 @@
       '<a href="' + authorLink + '">' + authorAvatarHtml(authorName, author.category) + "</a>" +
       "<div>" +
       '<a class="post-author-name" href="' + authorLink + '">' + escapeHtml(authorName) + "</a>" +
-      '<div class="post-meta-row"><span>' + relativeTime(new Date(post.created_at).getTime()) + " ago</span></div>" +
+      '<div class="post-meta-row"><span>' + relativeTime(new Date(post.created_at).getTime()) + " ago</span>" +
+      "<span>&middot;</span><span>" + responseCountLabel(post.id) + "</span></div>" +
       "</div></div>" +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
       '<p class="settings-note">' + (details || "No additional details") + " &mdash; " + post.status + "</p>" +
@@ -231,6 +250,7 @@
     applyTierGates();
 
     dealPosts = await fetchDealPosts();
+    responseCounts = await fetchResponseCounts(dealPosts.map(function (p) { return p.id; }));
     renderFeed();
     renderRecent();
 

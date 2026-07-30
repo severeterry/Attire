@@ -33,13 +33,42 @@
     return '<span class="portal-avatar"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
   }
 
+  function labelForPoolCategory(cat) {
+    var map = {
+      materials: "Materials Co-Op",
+      service: "Service Co-Op",
+      equipment: "Equipment/Tooling Co-Op",
+      logistics: "Logistics/Shipping Co-Op",
+      workspace: "Studio/Workspace Co-Op",
+      compliance: "Certification/Compliance Co-Op",
+    };
+    return map[cat] || "Co-Op";
+  }
+
+  // Accepted-participant counts are fetched separately (rather than an
+  // embedded pooling_participants(count)) because RLS visibility of pending
+  // rows differs by viewer (the organizer sees their own pool's pending
+  // requests too) — filtering status here client-side keeps "X of Y joined"
+  // accurate no matter who's looking.
+  async function fetchAcceptedCounts(poolIds) {
+    if (!poolIds.length) return {};
+    var res = await sb.from("pooling_participants").select("pooling_thread_id").eq("status", "accepted").in("pooling_thread_id", poolIds);
+    if (res.error) return {};
+    var counts = {};
+    (res.data || []).forEach(function (r) { counts[r.pooling_thread_id] = (counts[r.pooling_thread_id] || 0) + 1; });
+    return counts;
+  }
+
   async function fetchPools() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url), pooling_participants(count)")
+      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
-    return res.data;
+    var poolList = res.data;
+    var counts = await fetchAcceptedCounts(poolList.map(function (p) { return p.id; }));
+    poolList.forEach(function (p) { p.acceptedCount = counts[p.id] || 0; });
+    return poolList;
   }
 
   function visiblePools() {
@@ -53,7 +82,7 @@
   }
 
   function poolCardHtml(pool) {
-    var joined = (pool.pooling_participants && pool.pooling_participants[0] && pool.pooling_participants[0].count) || 0;
+    var joined = pool.acceptedCount || 0;
     var organizer = pool.profiles || {};
     var name = organizer.org_name || organizer.contact_name || "Member";
 
@@ -68,7 +97,7 @@
       "</div></div>" +
       '<p class="post-author-name" style="margin-top:0.6rem;">' + escapeHtml(pool.title) + "</p>" +
       '<p class="settings-note">' +
-      (pool.category === "materials" ? "Materials Co-Op" : "Service Co-Op") + " &mdash; " +
+      labelForPoolCategory(pool.category) + " &mdash; " +
       joined + " of " + pool.target_group_size + " joined" +
       (pool.participant_cap ? " (cap " + pool.participant_cap + ")" : "") + " &mdash; " + pool.status +
       "</p></a>"
@@ -155,6 +184,60 @@
     });
   }
 
+  function manageParticipantsHtml(pending, accepted) {
+    return (
+      '<div class="form-card" style="margin-top:1rem;" id="manage-participants-panel">' +
+      '<div class="profile-card-head"><h3>Manage participants</h3></div>' +
+
+      '<p class="settings-note" style="font-weight:700;">Pending requests (' + pending.length + ")</p>" +
+      (pending.length
+        ? pending.map(function (p) {
+            var name = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
+            return (
+              '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.5rem 0; border-bottom:1px solid var(--color-border);">' +
+              '<span class="settings-note" style="margin:0;">' + escapeHtml(name) + "</span>" +
+              '<span style="display:flex; gap:0.4rem;">' +
+              '<button type="button" class="btn btn-primary btn-sm" data-action="accept-participant" data-id="' + p.profile_id + '">Accept</button>' +
+              '<button type="button" class="btn btn-outline btn-sm" data-action="decline-participant" data-id="' + p.profile_id + '">Decline</button>' +
+              "</span></div>"
+            );
+          }).join("")
+        : '<p class="settings-note">None right now.</p>') +
+
+      '<p class="settings-note" style="font-weight:700; margin-top:1rem;">Accepted participants (' + accepted.length + ")</p>" +
+      (accepted.length
+        ? accepted.map(function (p) {
+            var name = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
+            return (
+              '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.5rem 0; border-bottom:1px solid var(--color-border);">' +
+              '<span class="settings-note" style="margin:0;">' + escapeHtml(name) + "</span>" +
+              '<button type="button" class="btn btn-outline btn-sm" data-action="remove-participant" data-id="' + p.profile_id + '">Remove</button>' +
+              "</div>"
+            );
+          }).join("")
+        : '<p class="settings-note">No one has been accepted yet.</p>') +
+
+      '<p class="settings-note" style="font-weight:700; margin-top:1rem;">Add a member</p>' +
+      '<div style="display:flex; gap:0.5rem;">' +
+      '<input type="text" id="add-participant-search" placeholder="Search by name or organization&hellip;" style="flex:1; padding:0.6rem 0.8rem; border:1.5px solid var(--color-border); border-radius:var(--radius-sm); background:var(--color-cream);">' +
+      '<button type="button" class="btn btn-outline btn-sm" id="add-participant-search-btn">Search</button>' +
+      "</div>" +
+      '<div id="add-participant-results" style="margin-top:0.5rem;"></div>' +
+      '<p class="login-error" id="manage-participants-error" hidden></p>' +
+      "</div>"
+    );
+  }
+
+  function addParticipantResultHtml(m) {
+    var name = m.org_name || m.contact_name || "Member";
+    return (
+      '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.4rem 0;">' +
+      '<span class="settings-note" style="margin:0;">' + escapeHtml(name) + "</span>" +
+      '<button type="button" class="btn btn-primary btn-sm" data-action="add-participant" data-id="' + m.id + '">Add</button>' +
+      "</div>"
+    );
+  }
+
   async function loadDetail(poolId) {
     document.getElementById("pooling-list-view").hidden = true;
     document.getElementById("pooling-detail-view").hidden = false;
@@ -174,11 +257,12 @@
 
     var partRes = await sb
       .from("pooling_participants")
-      .select("profile_id, profiles(org_name, contact_name)")
+      .select("profile_id, status, profiles(org_name, contact_name)")
       .eq("pooling_thread_id", poolId);
     var participants = partRes.data || [];
-    var joinedCount = participants.length;
-    var alreadyJoined = participants.some(function (p) { return p.profile_id === profile.id; });
+    var acceptedParticipants = participants.filter(function (p) { return p.status === "accepted"; });
+    var pendingParticipants = participants.filter(function (p) { return p.status === "pending"; });
+    var myRow = participants.find(function (p) { return p.profile_id === profile.id; });
     var isOrganizer = pool.organizer_id === profile.id;
 
     var detailsLine = pool.category === "materials"
@@ -187,26 +271,32 @@
 
     var html =
       '<h1 class="section-title" style="font-size:1.6rem;">' + escapeHtml(pool.title) + "</h1>" +
-      '<p class="settings-note">' + (pool.category === "materials" ? "Materials Co-Op" : "Service Co-Op") + "</p>" +
+      '<p class="settings-note">' + labelForPoolCategory(pool.category) + "</p>" +
       '<p class="section-lede">' + escapeHtml(pool.description) + "</p>" +
       '<div class="form-card">' +
       (detailsLine ? '<p class="settings-note">' + detailsLine + "</p>" : "") +
-      '<p style="font-weight:700; margin-top:0.75rem;">' + joinedCount + " of " + pool.target_group_size + " joined" +
+      '<p style="font-weight:700; margin-top:0.75rem;">' + acceptedParticipants.length + " of " + pool.target_group_size + " joined" +
       (pool.participant_cap ? " (cap " + pool.participant_cap + ")" : "") + "</p>" +
       (pool.closes_at ? '<p class="settings-note">Closes ' + new Date(pool.closes_at).toLocaleString() + "</p>" : "") +
       '<p class="settings-note">Status: ' + pool.status + "</p>" +
       "<ul style=\"margin-top:0.5rem;\">" +
-      participants.map(function (p) {
+      acceptedParticipants.map(function (p) {
         var name = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
         return '<li class="settings-note">' + escapeHtml(name) + "</li>";
       }).join("") +
       "</ul>";
 
-    if (pool.status === "open" && !alreadyJoined) {
-      html += '<button type="button" class="btn btn-primary btn-sm" id="pool-join-btn">Join this Co-Op</button>' +
-        '<p class="login-error" id="pool-join-error" hidden></p>';
-    } else if (pool.status === "open" && alreadyJoined) {
-      html += '<p class="settings-note">You&rsquo;re in this Co-Op.</p>';
+    if (pool.status === "open" && !isOrganizer) {
+      if (!myRow) {
+        html += '<button type="button" class="btn btn-primary btn-sm" id="pool-join-btn">Request to Join</button>' +
+          '<p class="login-error" id="pool-join-error" hidden></p>';
+      } else if (myRow.status === "pending") {
+        html += '<p class="settings-note">Request sent &mdash; waiting on the organizer to accept.</p>' +
+          '<button type="button" class="btn btn-outline btn-sm" id="pool-cancel-request-btn">Cancel request</button>' +
+          '<p class="login-error" id="pool-cancel-request-error" hidden></p>';
+      } else {
+        html += '<p class="settings-note">You&rsquo;re in this Co-Op.</p>';
+      }
     }
     if (pool.status === "open" && isOrganizer) {
       html += '<div style="margin-top:0.5rem;"><button type="button" class="btn btn-outline btn-sm" id="pool-close-btn">Close Co-Op now</button>' +
@@ -220,6 +310,10 @@
     }
     html += "</div>";
 
+    if (pool.status === "open" && isOrganizer) {
+      html += manageParticipantsHtml(pendingParticipants, acceptedParticipants);
+    }
+
     contentEl.innerHTML = html;
 
     var joinBtn = document.getElementById("pool-join-btn");
@@ -232,6 +326,23 @@
             errEl.textContent = res.error.message;
             errEl.hidden = false;
             joinBtn.disabled = false;
+            return;
+          }
+          loadDetail(poolId);
+        });
+      });
+    }
+
+    var cancelRequestBtn = document.getElementById("pool-cancel-request-btn");
+    if (cancelRequestBtn) {
+      cancelRequestBtn.addEventListener("click", function () {
+        cancelRequestBtn.disabled = true;
+        sb.from("pooling_participants").delete().eq("pooling_thread_id", poolId).eq("profile_id", profile.id).then(function (res) {
+          if (res.error) {
+            var errEl = document.getElementById("pool-cancel-request-error");
+            errEl.textContent = res.error.message;
+            errEl.hidden = false;
+            cancelRequestBtn.disabled = false;
             return;
           }
           loadDetail(poolId);
@@ -255,6 +366,83 @@
         });
       });
     }
+
+    var managePanel = document.getElementById("manage-participants-panel");
+    if (!managePanel) return;
+
+    function showManageError(message) {
+      var errEl = document.getElementById("manage-participants-error");
+      errEl.textContent = message;
+      errEl.hidden = false;
+    }
+
+    managePanel.addEventListener("click", function (e) {
+      var acceptBtn = e.target.closest('[data-action="accept-participant"]');
+      if (acceptBtn) {
+        acceptBtn.disabled = true;
+        sb.from("pooling_participants").update({ status: "accepted" }).eq("pooling_thread_id", poolId).eq("profile_id", acceptBtn.dataset.id).then(function (res) {
+          if (res.error) { showManageError(res.error.message); acceptBtn.disabled = false; return; }
+          loadDetail(poolId);
+        });
+        return;
+      }
+
+      var declineBtn = e.target.closest('[data-action="decline-participant"]');
+      if (declineBtn) {
+        declineBtn.disabled = true;
+        sb.from("pooling_participants").delete().eq("pooling_thread_id", poolId).eq("profile_id", declineBtn.dataset.id).then(function (res) {
+          if (res.error) { showManageError(res.error.message); declineBtn.disabled = false; return; }
+          loadDetail(poolId);
+        });
+        return;
+      }
+
+      var removeBtn = e.target.closest('[data-action="remove-participant"]');
+      if (removeBtn) {
+        removeBtn.disabled = true;
+        sb.from("pooling_participants").delete().eq("pooling_thread_id", poolId).eq("profile_id", removeBtn.dataset.id).then(function (res) {
+          if (res.error) { showManageError(res.error.message); removeBtn.disabled = false; return; }
+          loadDetail(poolId);
+        });
+        return;
+      }
+
+      var addBtn = e.target.closest('[data-action="add-participant"]');
+      if (addBtn) {
+        addBtn.disabled = true;
+        sb.from("pooling_participants").insert({ pooling_thread_id: poolId, profile_id: addBtn.dataset.id }).then(function (res) {
+          if (res.error) { showManageError(res.error.message); addBtn.disabled = false; return; }
+          loadDetail(poolId);
+        });
+      }
+    });
+
+    var existingIds = participants.map(function (p) { return p.profile_id; }).concat([profile.id]);
+
+    function runParticipantSearch() {
+      var query = document.getElementById("add-participant-search").value.trim();
+      var resultsEl = document.getElementById("add-participant-results");
+      if (!query) { resultsEl.innerHTML = ""; return; }
+
+      sb.from("profiles")
+        .select("id, org_name, contact_name")
+        .neq("tier", "free")
+        .not("id", "in", "(" + existingIds.join(",") + ")")
+        .or("org_name.ilike.%" + query + "%,contact_name.ilike.%" + query + "%")
+        .limit(5)
+        .then(function (res) {
+          if (res.error || !res.data.length) {
+            resultsEl.innerHTML = '<p class="settings-note">No matching members found.</p>';
+            return;
+          }
+          resultsEl.innerHTML = res.data.map(addParticipantResultHtml).join("");
+        });
+    }
+
+    document.getElementById("add-participant-search-btn").addEventListener("click", runParticipantSearch);
+    document.getElementById("add-participant-search").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); runParticipantSearch(); }
+    });
   }
 
   document.addEventListener("DOMContentLoaded", async function () {

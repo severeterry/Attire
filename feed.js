@@ -16,6 +16,23 @@
   var likedPostIds = new Set();
   var openComments = new Set();
   var filterState = { sort: "newest" };
+  var exchangeResponseCounts = {};
+
+  // Public response counts — the count is visible to everyone, the thread
+  // content behind it stays exactly as private as before.
+  async function fetchResponseCounts(postIds) {
+    if (!postIds.length) return {};
+    var res = await sb.rpc("get_rfp_response_counts", { p_rfp_post_ids: postIds });
+    if (res.error) return {};
+    var map = {};
+    (res.data || []).forEach(function (r) { map[r.rfp_post_id] = r.response_count; });
+    return map;
+  }
+
+  function responseCountLabel(postId) {
+    var count = exchangeResponseCounts[postId] || 0;
+    return count + (count === 1 ? " response" : " responses");
+  }
 
   function escapeHtml(str) {
     return String(str)
@@ -108,6 +125,7 @@
     posts = results[0];
     var exchangeItems = results[1];
     var coopItems = results[2];
+    exchangeResponseCounts = await fetchResponseCounts(exchangeItems.map(function (p) { return p.id; }));
 
     var normalizedPosts = posts.map(function (p) {
       return { source: "post", id: p.id, raw: p, authorId: p.author_id, profiles: p.profiles, body: p.body, createdAt: p.created_at };
@@ -176,7 +194,9 @@
         '<a href="' + authorLink + '">' + avatarHtml(name, author.category, author.avatar_url) + "</a>" +
         "<div>" +
         '<a class="post-author-name" href="' + authorLink + '">' + escapeHtml(name) + "</a>" +
-        '<div class="post-meta-row"><span>' + relativeTime(new Date(item.createdAt).getTime()) + " ago</span></div>" +
+        '<div class="post-meta-row"><span>' + relativeTime(new Date(item.createdAt).getTime()) + " ago</span>" +
+        (item.source === "exchange" ? "<span>&middot;</span><span>" + responseCountLabel(item.id) + "</span>" : "") +
+        "</div>" +
         "</div></div>" +
         '<p class="post-body">' + escapeHtml(item.body) + "</p>" +
         '<div class="post-actions">' +
