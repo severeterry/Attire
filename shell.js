@@ -6,7 +6,9 @@
 (function () {
   "use strict";
 
-  var PORTAL_STORAGE_KEY = "attire-portal-v1";
+  // Must match portal.js's DM_STORAGE_KEY — both read/write the same
+  // general-DM-threads blob (Deal Board posts now live in Supabase instead).
+  var PORTAL_STORAGE_KEY = "attire-portal-dm-v1";
 
   function escapeHtml(str) {
     return String(str)
@@ -41,21 +43,13 @@
 
   function buildInitialPortalState() {
     var now = Date.now();
-    var posts = PORTAL_SEED_POSTS.map(function (p) {
-      return {
-        id: p.id, authorName: p.authorName, category: p.category, type: p.type, body: p.body,
-        createdAt: now - p.ageMs, likes: p.likes, liked: p.liked, reposted: p.reposted, repostCount: p.repostCount,
-        comments: p.comments.map(function (c) { return { author: c.author, category: c.category, body: c.body, createdAt: now - c.ageMs }; }),
-        commentsOpen: false,
-      };
-    });
     var threads = PORTAL_SEED_THREADS.map(function (t) {
       return {
         id: t.id, name: t.name, category: t.category, unread: t.unread,
         messages: t.messages.map(function (m) { return { from: m.from, text: m.text, createdAt: now - m.ageMs }; }),
       };
     });
-    return { posts: posts, threads: threads };
+    return { threads: threads };
   }
 
   function loadPortalState() {
@@ -75,11 +69,13 @@
     return "";
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    var auth = window.AttireAuth ? window.AttireAuth.getAuth() : null;
-    if (!auth || !auth.loggedIn) return; // page-level guards handle the redirect
+  document.addEventListener("DOMContentLoaded", async function () {
+    if (!window.AttireAuth) return;
+    var session = await window.AttireAuth.getSession();
+    if (!session) return; // page-level guards handle the redirect
 
-    var profile = loadPortalProfile();
+    var profile = await window.AttireAuth.getCurrentProfile();
+    if (!profile) return;
     seedConnectionsIfEmpty(profile.name);
 
     // Sidebar account switcher
@@ -94,9 +90,7 @@
     if (acctName) acctName.textContent = profile.name;
     if (acctSub) acctSub.textContent = profile.orgName || (profile.tier ? profile.tier.charAt(0).toUpperCase() + profile.tier.slice(1) + " Plan" : "Member");
 
-    document.querySelectorAll('[data-action="logout"]').forEach(function (link) {
-      link.addEventListener("click", function () { window.AttireAuth && window.AttireAuth.clearAuth(); });
-    });
+    // Logout is already wired globally in auth.js.
 
     // ---- Messages dropdown ----
     var msgBtn = document.getElementById("topbar-messages-btn");

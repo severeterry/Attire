@@ -107,10 +107,10 @@
   var credentialsForm = document.getElementById("credentials-form");
   if (!credentialsForm) return;
   var errorEl = document.getElementById("credentials-error");
+  var checkEmailPanel = document.getElementById("check-email");
 
   credentialsForm.addEventListener("submit", function (e) {
     e.preventDefault();
-    var username = document.getElementById("new-username").value.trim();
     var password = document.getElementById("new-password").value;
     var confirm = document.getElementById("confirm-password").value;
 
@@ -121,22 +121,65 @@
     }
     errorEl.hidden = true;
 
-    if (window.AttireAuth) {
-      window.AttireAuth.setCredentials(username, password);
-      window.AttireAuth.createApplicantProfile(
-        {
-          orgName: (document.getElementById("org-name") || {}).value || "",
-          contactName: (document.getElementById("contact-name") || {}).value || "",
-          category: (document.getElementById("category") || {}).value || null,
-          borough: (document.getElementById("borough") || {}).value || "",
-          email: (document.getElementById("email") || {}).value || "",
-          website: (document.getElementById("website") || {}).value || "",
-          pitch: (document.getElementById("pitch") || {}).value || "",
-        },
-        pendingBilling || { tier: "individual", tierLabel: PLAN_LABELS.individual, termMonths: 1, monthlyRate: PLAN_RATES.individual[1], totalDue: PLAN_RATES.individual[1], freeMonths: FREE_MONTHS, status: "trial" }
-      );
-      window.AttireAuth.setAuth(username);
+    var fields = {
+      orgName: (document.getElementById("org-name") || {}).value || "",
+      contactName: (document.getElementById("contact-name") || {}).value || "",
+      category: (document.getElementById("category") || {}).value || null,
+      borough: (document.getElementById("borough") || {}).value || "",
+      email: (document.getElementById("email") || {}).value || "",
+      website: (document.getElementById("website") || {}).value || "",
+      pitch: (document.getElementById("pitch") || {}).value || "",
+    };
+    var billing = pendingBilling || {
+      tier: "individual", tierLabel: PLAN_LABELS.individual, termMonths: 1,
+      monthlyRate: PLAN_RATES.individual[1], totalDue: PLAN_RATES.individual[1],
+      freeMonths: FREE_MONTHS, status: "trial",
+    };
+
+    if (!window.AttireAuth || !window.supabaseClient) return;
+
+    var submitBtn = credentialsForm.querySelector('button[type="submit"]');
+    var labelEl = submitBtn.querySelector(".signup-submit-label");
+    submitBtn.disabled = true;
+    if (labelEl) labelEl.textContent = "Creating account…";
+
+    function resetButton() {
+      submitBtn.disabled = false;
+      if (labelEl) labelEl.textContent = "Create Account & Enter Portal";
     }
-    window.location.href = "member-portal.html";
+
+    window.supabaseClient.auth.signUp({ email: fields.email, password: password }).then(function (res) {
+      if (res.error) {
+        resetButton();
+        errorEl.textContent = res.error.message;
+        errorEl.hidden = false;
+        return;
+      }
+
+      var userId = res.data.user.id;
+      var session = res.data.session;
+
+      window.AttireAuth.completeSignup(userId, session, fields, billing).then(function (profileErr) {
+        resetButton();
+
+        if (profileErr) {
+          errorEl.textContent = profileErr;
+          errorEl.hidden = false;
+          return;
+        }
+
+        if (session) {
+          window.location.href = "member-portal.html";
+          return;
+        }
+
+        accountSetup.classList.remove("is-visible");
+        if (checkEmailPanel) {
+          checkEmailPanel.classList.add("is-visible");
+          checkEmailPanel.setAttribute("tabindex", "-1");
+          checkEmailPanel.focus();
+        }
+      });
+    });
   });
 })();

@@ -1,9 +1,8 @@
 /**
- * Default seed for the member profile page (profile.html).
- * Illustrative demo content for a single signed-in member, "Alex Rivera".
+ * Options for the profile page's sustainability-practice picker, plus the
+ * member-connections system below — both still local/prototype features.
+ * The profile itself now lives in Supabase (see auth.js).
  */
-
-var PROFILE_STORAGE_KEY = "attire-profile-v1";
 
 var PROFILE_PRACTICE_OPTIONS = [
   "Deadstock / recycled materials",
@@ -15,39 +14,6 @@ var PROFILE_PRACTICE_OPTIONS = [
   "Zero-waste pattern cutting",
   "Vegan / cruelty-free",
 ];
-
-var PROFILE_DEFAULT = {
-  name: "Alex Rivera",
-  orgName: "Rivera Studio",
-  category: "strategy",
-  borough: "Brooklyn",
-  bio: "Independent production consultant helping small NYC labels navigate sourcing and compliance. Always happy to trade notes on deadstock suppliers.",
-  email: "alex@riverastudio.co",
-  website: "riverastudio.co",
-  practices: ["Locally made in NYC", "Deadstock / recycled materials"],
-  avatar: null,
-  memberSince: "2026",
-  settings: {
-    notifyMessages: true,
-    notifyDealBoard: true,
-    showInDirectory: true,
-    dmFromAllMembers: true,
-  },
-};
-
-function loadPortalProfile() {
-  try {
-    var raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  var fresh = JSON.parse(JSON.stringify(PROFILE_DEFAULT));
-  try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(fresh)); } catch (e) {}
-  return fresh;
-}
-
-function savePortalProfile(profile) {
-  try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile)); } catch (e) {}
-}
 
 /**
  * Connections between members. Stored as a flat list of requests:

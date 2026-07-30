@@ -1,9 +1,16 @@
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "attire-portal-v1";
-  var state = null;
+  var sb = window.supabaseClient;
+
+  // General 1:1 direct-message threads — a pre-existing feature, left on
+  // localStorage untouched. Deal Board posts/responses (below) are the only
+  // part of this file backed by real Supabase data.
+  var DM_STORAGE_KEY = "attire-portal-dm-v1";
+
+  var dmState = null;
   var profile = null;
+  var dealPosts = [];
   var activeFilter = "all";
   var activeThreadId = null;
 
@@ -24,26 +31,8 @@
     return day + "d";
   }
 
-  function buildInitialState() {
+  function buildInitialDmState() {
     var now = Date.now();
-    var posts = PORTAL_SEED_POSTS.map(function (p) {
-      return {
-        id: p.id,
-        authorName: p.authorName,
-        category: p.category,
-        type: p.type,
-        body: p.body,
-        createdAt: now - p.ageMs,
-        likes: p.likes,
-        liked: p.liked,
-        reposted: p.reposted,
-        repostCount: p.repostCount,
-        comments: p.comments.map(function (c) {
-          return { author: c.author, category: c.category, body: c.body, createdAt: now - c.ageMs };
-        }),
-        commentsOpen: false,
-      };
-    });
     var threads = PORTAL_SEED_THREADS.map(function (t) {
       return {
         id: t.id,
@@ -55,21 +44,21 @@
         }),
       };
     });
-    return { posts: posts, threads: threads };
+    return { threads: threads };
   }
 
-  function load() {
+  function loadDmState() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var raw = localStorage.getItem(DM_STORAGE_KEY);
       if (raw) return JSON.parse(raw);
     } catch (e) {}
-    var fresh = buildInitialState();
-    save(fresh);
+    var fresh = buildInitialDmState();
+    saveDmState(fresh);
     return fresh;
   }
 
-  function save(s) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  function saveDmState(s) {
+    try { localStorage.setItem(DM_STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
   }
 
   function escapeHtml(str) {
@@ -103,14 +92,6 @@
     return isMe(name) ? "profile.html" : "profile.html?member=" + encodeURIComponent(name);
   }
 
-  function typeBadge(type) {
-    if (type === "deal")
-      return '<span class="post-type-flag post-type-flag--deal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v14M7 17l-4-4M7 17l4-4M17 21V7M17 7l4 4M17 7l-4 4"/></svg>Deal Board RFP</span>';
-    if (type === "sourcing")
-      return '<span class="post-type-flag post-type-flag--sourcing"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Sourcing</span>';
-    return "";
-  }
-
   function labelForCategory(cat) {
     var map = {
       materials: "Materials & Making",
@@ -122,54 +103,46 @@
     return map[cat] || cat;
   }
 
-  function postHtml(post) {
-    var isSpecial = post.type === "deal" || post.type === "sourcing";
-    var commentsHtml = post.comments
-      .map(function (c) {
-        var link = profileLink(c.author);
-        return (
-          '<div class="comment">' +
-          '<a href="' + link + '">' + authorAvatarHtml(c.author, c.category, "portal-avatar-sm") + "</a>" +
-          '<div><a class="comment-author" href="' + link + '">' + escapeHtml(c.author) + "</a>" +
-          '<div class="comment-body">' + escapeHtml(c.body) + "</div></div></div>"
-        );
-      })
-      .join("");
+  // ---- Deal Board (Supabase-backed) ----
+
+  function typeBadgeHtml(postType) {
+    if (postType === "deal_board_rfp")
+      return '<span class="post-type-flag post-type-flag--deal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v14M7 17l-4-4M7 17l4-4M17 21V7M17 7l4 4M17 7l-4 4"/></svg>Deal Board RFP</span>';
+    return '<span class="post-type-flag post-type-flag--sourcing"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Sourcing</span>';
+  }
+
+  async function fetchDealPosts() {
+    var res = await sb
+      .from("rfp_posts")
+      .select("id, post_type, category, scope, budget_range, deadline, body, status, created_at, author_id, profiles(org_name, contact_name, category)")
+      .order("created_at", { ascending: false });
+    if (res.error) {
+      console.error(res.error);
+      return [];
+    }
+    return res.data;
+  }
+
+  function dealPostHtml(post) {
+    var author = post.profiles || {};
+    var authorName = author.org_name || author.contact_name || "Member";
+    var details = [post.category, post.scope, post.budget_range, post.deadline].filter(Boolean).join(" &middot; ");
+    var authorLink = post.author_id === profile.id ? "profile.html" : "profile.html?id=" + encodeURIComponent(post.author_id);
 
     return (
-      '<article class="post-card' + (isSpecial ? " is-" + post.type : "") + '" data-id="' + post.id + '">' +
-      (isSpecial ? '<div class="post-type-flag-slot">' + typeBadge(post.type) + "</div>" : "") +
-      (post.reposted
-        ? '<div class="post-repost-flag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> You reposted</div>'
-        : "") +
+      '<article class="post-card is-' + (post.post_type === "deal_board_rfp" ? "deal" : "sourcing") + '" data-id="' + post.id + '">' +
+      '<div class="post-type-flag-slot">' + typeBadgeHtml(post.post_type) + "</div>" +
       '<div class="post-head">' +
-      '<a href="' + profileLink(post.authorName) + '">' + authorAvatarHtml(post.authorName, post.category) + "</a>" +
-      '<div>' +
-      '<a class="post-author-name" href="' + profileLink(post.authorName) + '">' + escapeHtml(post.authorName) + "</a>" +
-      '<div class="post-meta-row">' +
-      (post.category ? '<span class="cat-badge" data-cat="' + post.category + '">' + escapeHtml(labelForCategory(post.category)) + "</span>" : "") +
-      '<span>&middot;</span><span>' + relativeTime(post.createdAt) + " ago</span>" +
-      "</div></div></div>" +
+      '<a href="' + authorLink + '">' + authorAvatarHtml(authorName, author.category) + "</a>" +
+      "<div>" +
+      '<a class="post-author-name" href="' + authorLink + '">' + escapeHtml(authorName) + "</a>" +
+      '<div class="post-meta-row"><span>' + relativeTime(new Date(post.created_at).getTime()) + " ago</span></div>" +
+      "</div></div>" +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
-      (post.media ? '<div class="post-media"><img src="' + post.media + '" alt=""></div>' : "") +
+      '<p class="settings-note">' + (details || "No additional details") + " &mdash; " + post.status + "</p>" +
       '<div class="post-actions">' +
-      '<button type="button" class="post-action' + (post.liked ? " is-active" : "") + '" data-action="like">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="' + (post.liked ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>' +
-      "<span>" + post.likes + "</span></button>" +
-      '<button type="button" class="post-action" data-action="comment">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
-      "<span>" + post.comments.length + "</span></button>" +
-      '<button type="button" class="post-action' + (post.reposted ? " is-active" : "") + '" data-action="repost">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>' +
-      "<span>" + post.repostCount + "</span></button>" +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="respond" data-id="' + post.id + '">Respond</button>' +
       "</div>" +
-      (post.commentsOpen
-        ? '<div class="post-comments">' + commentsHtml +
-          '<form class="comment-compose" data-id="' + post.id + '">' +
-          '<input type="text" placeholder="Write a comment&hellip;" aria-label="Write a comment" required>' +
-          '<button type="submit" class="btn btn-primary btn-sm">Reply</button>' +
-          "</form></div>"
-        : "") +
       "</article>"
     );
   }
@@ -177,23 +150,51 @@
   function renderFeed() {
     var feedEl = document.getElementById("portal-feed-list");
     if (!feedEl) return;
-    var posts = state.posts.slice().sort(function (a, b) { return b.createdAt - a.createdAt; });
-    if (activeFilter === "deal" || activeFilter === "sourcing") posts = posts.filter(function (p) { return p.type === activeFilter; });
-    var query = (document.getElementById("feed-search").value || "").trim().toLowerCase();
+    var posts = dealPosts.slice();
+    if (activeFilter === "deal") posts = posts.filter(function (p) { return p.post_type === "deal_board_rfp"; });
+    else if (activeFilter === "sourcing") posts = posts.filter(function (p) { return p.post_type === "sourcing"; });
+
+    var searchEl = document.getElementById("feed-search");
+    var query = (searchEl && searchEl.value || "").trim().toLowerCase();
     if (query) {
-      posts = posts.filter(function (p) {
-        return p.body.toLowerCase().indexOf(query) !== -1 || p.authorName.toLowerCase().indexOf(query) !== -1;
-      });
+      posts = posts.filter(function (p) { return p.body.toLowerCase().indexOf(query) !== -1; });
     }
+
     feedEl.innerHTML = posts.length
-      ? posts.map(postHtml).join("")
-      : '<div class="empty-state"><h3>Nothing here yet</h3><p>Sourcing RFPs from members will show up in this view.</p></div>';
+      ? posts.map(dealPostHtml).join("")
+      : '<div class="empty-state"><h3>Nothing here yet</h3><p>Deal Board RFPs and sourcing posts from members will show up in this view.</p></div>';
   }
+
+  async function respondToPost(postId) {
+    var body = window.prompt("Write your response to this post:");
+    if (!body || !body.trim()) return;
+
+    var postRes = await sb.from("rfp_posts").select("author_id").eq("id", postId).single();
+    if (postRes.error || !postRes.data) { window.alert("Couldn't find that post."); return; }
+
+    var threadRes = await sb.from("threads").insert({ rfp_post_id: postId }).select("id").single();
+    if (threadRes.error) { window.alert(threadRes.error.message); return; }
+    var threadId = threadRes.data.id;
+
+    var participants = [{ thread_id: threadId, profile_id: profile.id }];
+    if (postRes.data.author_id !== profile.id) {
+      participants.push({ thread_id: threadId, profile_id: postRes.data.author_id });
+    }
+    var partRes = await sb.from("thread_participants").insert(participants);
+    if (partRes.error) { window.alert(partRes.error.message); return; }
+
+    var msgRes = await sb.from("messages").insert({ thread_id: threadId, sender_id: profile.id, body: body.trim() });
+    if (msgRes.error) { window.alert(msgRes.error.message); return; }
+
+    window.location.href = "thread.html?id=" + encodeURIComponent(threadId);
+  }
+
+  // ---- General DM thread list / chat view (localStorage, unchanged) ----
 
   function renderThreadList() {
     var listEl = document.getElementById("chat-thread-list");
     if (!listEl) return;
-    listEl.innerHTML = state.threads
+    listEl.innerHTML = dmState.threads
       .map(function (t) {
         var last = t.messages[t.messages.length - 1];
         return (
@@ -211,7 +212,7 @@
   function renderChatView() {
     var viewFeed = document.getElementById("view-feed");
     var viewChat = document.getElementById("view-chat");
-    var thread = state.threads.find(function (t) { return t.id === activeThreadId; });
+    var thread = dmState.threads.find(function (t) { return t.id === activeThreadId; });
 
     if (!thread) {
       viewFeed.hidden = false;
@@ -317,7 +318,7 @@
     if (isFree) {
       if (composerCard) composerCard.hidden = true;
       if (composerLocked) composerLocked.hidden = false;
-      if (appList) appList.innerHTML = '<div class="notif-empty" style="padding:var(--space-4);color:#9FB89F;">Messaging is available on paid plans.</div>';
+      if (appList) appList.innerHTML = '<div class="notif-empty" style="padding:var(--space-4);color:var(--color-dark-text-faint);">Messaging is available on paid plans.</div>';
     } else {
       if (composerCard) composerCard.hidden = false;
       if (composerLocked) composerLocked.hidden = true;
@@ -330,35 +331,37 @@
     });
   }
 
-  function render() {
-    renderFeed();
-    if (!isFreeTier()) renderThreadList();
-    renderChatView();
-  }
-
   function isFreeTier() {
     return (profile.tier || "individual") === "free";
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    var auth = window.AttireAuth ? window.AttireAuth.getAuth() : null;
-    if (!auth || !auth.loggedIn) {
+  document.addEventListener("DOMContentLoaded", async function () {
+    if (!window.AttireAuth) return;
+    var session = await window.AttireAuth.getSession();
+    if (!session) {
       window.location.href = "index.html";
       return;
     }
 
-    profile = loadPortalProfile();
+    profile = await window.AttireAuth.getCurrentProfile();
+    if (!profile) {
+      window.location.href = "index.html";
+      return;
+    }
+
     seedConnectionsIfEmpty(profile.name);
-    state = load();
+    dmState = loadDmState();
     renderComposerAvatar();
     applyTierGates();
+
+    dealPosts = await fetchDealPosts();
 
     var params = new URLSearchParams(window.location.search);
     var threadParam = params.get("thread");
     if (threadParam && !isFreeTier()) {
       activeThreadId = threadParam;
-      var openedThread = state.threads.find(function (t) { return t.id === threadParam; });
-      if (openedThread) { openedThread.unread = false; save(state); }
+      var openedThread = dmState.threads.find(function (t) { return t.id === threadParam; });
+      if (openedThread) { openedThread.unread = false; saveDmState(dmState); }
     }
 
     var viewParam = params.get("view");
@@ -371,58 +374,44 @@
     }
 
     var composerForm = document.getElementById("composer-form");
-    var composerTextarea = document.getElementById("composer-textarea");
-    var pendingMedia = null;
-
-    var mediaBtn = document.getElementById("composer-media-btn");
-    var mediaInput = document.getElementById("composer-media-input");
-    var mediaPreview = document.getElementById("composer-media-preview");
-    var mediaImg = document.getElementById("composer-media-img");
-    var mediaRemove = document.getElementById("composer-media-remove");
-
-    mediaBtn.addEventListener("click", function () { mediaInput.click(); });
-    mediaInput.addEventListener("change", function () {
-      var file = mediaInput.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function () {
-        pendingMedia = reader.result;
-        mediaImg.src = pendingMedia;
-        mediaPreview.hidden = false;
-      };
-      reader.readAsDataURL(file);
-    });
-    mediaRemove.addEventListener("click", function () {
-      pendingMedia = null;
-      mediaInput.value = "";
-      mediaPreview.hidden = true;
-    });
+    var composerError = document.getElementById("composer-error");
 
     composerForm.addEventListener("submit", function (e) {
       e.preventDefault();
-      var text = composerTextarea.value.trim();
-      if (!text) return;
-      state.posts.unshift({
-        id: "post-" + Date.now(),
-        authorName: profile.name,
-        category: profile.category,
-        type: "update",
-        body: text,
-        media: pendingMedia,
-        createdAt: Date.now(),
-        likes: 0,
-        liked: false,
-        reposted: false,
-        repostCount: 0,
-        comments: [],
-        commentsOpen: false,
+      var postType = document.getElementById("composer-post-type").value;
+      var body = document.getElementById("composer-textarea").value.trim();
+      if (!postType) {
+        composerError.textContent = "Choose whether this is a Deal Board RFP or a Sourcing post.";
+        composerError.hidden = false;
+        return;
+      }
+      if (!body) return;
+      composerError.hidden = true;
+
+      var submitBtn = composerForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+
+      sb.from("rfp_posts").insert({
+        author_id: profile.id,
+        post_type: postType,
+        category: document.getElementById("composer-category").value.trim() || null,
+        scope: document.getElementById("composer-scope").value.trim() || null,
+        budget_range: document.getElementById("composer-budget").value.trim() || null,
+        deadline: document.getElementById("composer-deadline").value || null,
+        body: body,
+      }).then(function (res) {
+        submitBtn.disabled = false;
+        if (res.error) {
+          composerError.textContent = res.error.message;
+          composerError.hidden = false;
+          return;
+        }
+        composerForm.reset();
+        fetchDealPosts().then(function (posts) {
+          dealPosts = posts;
+          renderFeed();
+        });
       });
-      composerTextarea.value = "";
-      pendingMedia = null;
-      mediaInput.value = "";
-      mediaPreview.hidden = true;
-      save(state);
-      renderFeed();
     });
 
     document.getElementById("feed-search").addEventListener("input", renderFeed);
@@ -441,38 +430,9 @@
 
     var feedEl = document.getElementById("portal-feed-list");
     feedEl.addEventListener("click", function (e) {
-      var actionBtn = e.target.closest(".post-action");
-      if (!actionBtn) return;
-      var card = e.target.closest(".post-card");
-      var id = card.dataset.id;
-      var post = state.posts.find(function (p) { return p.id === id; });
-      if (!post) return;
-      var action = actionBtn.dataset.action;
-      if (action === "like") {
-        post.liked = !post.liked;
-        post.likes += post.liked ? 1 : -1;
-      } else if (action === "repost") {
-        post.reposted = !post.reposted;
-        post.repostCount += post.reposted ? 1 : -1;
-      } else if (action === "comment") {
-        post.commentsOpen = !post.commentsOpen;
-      }
-      save(state);
-      renderFeed();
-    });
-
-    feedEl.addEventListener("submit", function (e) {
-      var form = e.target.closest(".comment-compose");
-      if (!form) return;
-      e.preventDefault();
-      var input = form.querySelector("input");
-      var text = input.value.trim();
-      if (!text) return;
-      var post = state.posts.find(function (p) { return p.id === form.dataset.id; });
-      if (!post) return;
-      post.comments.push({ author: profile.name, category: profile.category, body: text, createdAt: Date.now() });
-      save(state);
-      renderFeed();
+      var respondBtn = e.target.closest('[data-action="respond"]');
+      if (!respondBtn) return;
+      respondToPost(respondBtn.dataset.id);
     });
 
     if (!isFreeTier()) {
@@ -485,9 +445,9 @@
         var item = e.target.closest(".app-list-item");
         if (!item) return;
         activeThreadId = item.dataset.id;
-        var thread = state.threads.find(function (t) { return t.id === activeThreadId; });
+        var thread = dmState.threads.find(function (t) { return t.id === activeThreadId; });
         if (thread) thread.unread = false;
-        save(state);
+        saveDmState(dmState);
         renderThreadList();
         renderChatView();
       });
@@ -497,15 +457,17 @@
         var chatInput = document.getElementById("chat-input");
         var text = chatInput.value.trim();
         if (!text || !activeThreadId) return;
-        var thread = state.threads.find(function (t) { return t.id === activeThreadId; });
+        var thread = dmState.threads.find(function (t) { return t.id === activeThreadId; });
         if (!thread) return;
         thread.messages.push({ from: "me", text: text, createdAt: Date.now() });
         chatInput.value = "";
-        save(state);
+        saveDmState(dmState);
         renderChatView();
       });
     }
 
-    render();
+    renderFeed();
+    if (!isFreeTier()) renderThreadList();
+    renderChatView();
   });
 })();

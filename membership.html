@@ -396,12 +396,8 @@
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           </div>
           <h3 class="section-title" style="font-size:1.4rem;">Almost there &mdash; create your login</h3>
-          <p class="section-lede">Create a username and password to access the member portal.</p>
+          <p class="section-lede">Create a password to access the member portal. We'll use the email address from your application to log you in.</p>
           <form id="credentials-form">
-            <div class="form-field">
-              <label for="new-username">Username</label>
-              <input type="text" id="new-username" required autocomplete="username">
-            </div>
             <div class="form-field">
               <label for="new-password">Password</label>
               <input type="password" id="new-password" required autocomplete="new-password" minlength="6">
@@ -411,8 +407,21 @@
               <input type="password" id="confirm-password" required autocomplete="new-password" minlength="6">
             </div>
             <p class="login-error" id="credentials-error" hidden></p>
-            <button type="submit" class="btn btn-primary btn-lg btn-block">Create Account &amp; Enter Portal</button>
+            <button type="submit" class="btn btn-primary btn-lg btn-block">
+              <span class="signup-submit-label">Create Account &amp; Enter Portal</span>
+            </button>
           </form>
+        </div>
+
+        <div class="form-success" id="check-email" style="text-align:left;">
+          <div class="success-icon" style="margin:0 0 var(--space-2);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h3 class="section-title" style="font-size:1.4rem;">Check your email</h3>
+          <p class="section-lede">
+            We've sent a confirmation link to the email address on your application. Click it, then
+            <a href="#" data-action="member-login">log in</a> to enter the member portal.
+          </p>
         </div>
       </div>
     </div>
@@ -480,30 +489,28 @@
     </div>
     <form id="login-form">
       <div class="form-field">
-        <label for="login-username">Username</label>
-        <input type="text" id="login-username" required autocomplete="username">
+        <label for="login-username">Email</label>
+        <input type="email" id="login-username" required autocomplete="username">
       </div>
       <div class="form-field">
         <label for="login-password">Password</label>
         <input type="password" id="login-password" required autocomplete="current-password">
       </div>
-      <p class="login-error" id="login-error" hidden>Incorrect username or password.</p>
-      <button type="submit" class="btn btn-primary btn-block">Log In</button>
+      <p class="login-error" id="login-error" hidden>Incorrect email or password.</p>
+      <button type="submit" class="btn btn-primary btn-block">
+        <span class="login-submit-label">Log In</span>
+      </button>
       <div class="login-demo-accounts">
-        <p class="login-hint-label">Demo logins</p>
-        <ul>
-          <li><strong>free_demo</strong> / free123 <span>&mdash; Free plan</span></li>
-          <li><strong>member_demo</strong> / member123 <span>&mdash; Individual plan</span></li>
-          <li><strong>org_demo</strong> / org123 <span>&mdash; Organization plan</span></li>
-        </ul>
-        <p class="login-hint">Or <a href="membership.html#apply">apply for membership</a> to create your own.</p>
+        <p class="login-hint">No account yet? <a href="membership.html#apply">Apply for membership</a> to create one.</p>
       </div>
     </form>
   </div>
 </div>
 
 <script src="script.js?v=2"></script>
-<script src="membership.js?v=3"></script>
-<script src="auth.js?v=3"></script>
+<script src="membership.js?v=4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-client.js?v=1"></script>
+<script src="auth.js?v=4"></script>
 </body>
 </html>

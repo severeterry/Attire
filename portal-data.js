@@ -1,98 +1,11 @@
 /**
  * Seed content for the member portal demo (member-portal.html).
- * This is illustrative sample data for prototyping the feed/chat UI —
- * not live posts from the named organizations.
+ * This is illustrative sample data for prototyping the DM chat UI —
+ * not real conversations with the named organizations. Deal Board posts
+ * live in Supabase now, not here.
  */
 
 var PORTAL_CURRENT_USER = { name: "Alex Rivera", initials: "AR", category: null };
-
-var PORTAL_SEED_POSTS = [
-  {
-    id: "seed-1",
-    authorName: "Rubi Laboratories",
-    category: "circularity",
-    type: "sourcing",
-    body: "Looking for a NYC-based dye house comfortable running small pilot batches of our lab-grown viscose — reach out if that's you.",
-    ageMs: 1000 * 60 * 40,
-    likes: 6,
-    liked: false,
-    reposted: false,
-    repostCount: 1,
-    comments: [
-      { author: "Circ", category: "circularity", body: "We ran into the same search last quarter — happy to compare notes.", ageMs: 1000 * 60 * 25 },
-    ],
-  },
-  {
-    id: "seed-2",
-    authorName: "Reformation",
-    category: "retail",
-    type: "deal",
-    body: "Sourcing a small-batch cut-and-sew partner in the boroughs for a limited run — quick turnaround, flexible MOQ preferred.",
-    ageMs: 1000 * 60 * 60 * 3,
-    likes: 9,
-    liked: false,
-    reposted: false,
-    repostCount: 0,
-    comments: [],
-  },
-  {
-    id: "seed-3",
-    authorName: "FabScrap",
-    category: "circularity",
-    type: "update",
-    body: "Dropping off a fresh batch of Garment District deadstock at the Brooklyn warehouse this Thursday — members get first pick before the public resale shop opens.",
-    ageMs: 1000 * 60 * 60 * 6,
-    likes: 14,
-    liked: true,
-    reposted: false,
-    repostCount: 3,
-    comments: [
-      { author: "Mood Fabrics", category: "materials", body: "Always good stuff in that batch, see you there.", ageMs: 1000 * 60 * 60 * 5 },
-      { author: "Kordal Studio", category: "retail", body: "Is this the wool-heavy batch or more cotton this time?", ageMs: 1000 * 60 * 60 * 4 },
-    ],
-  },
-  {
-    id: "seed-4",
-    authorName: "Sustainable Fashion Community Center",
-    category: "advocacy",
-    type: "update",
-    body: "This month's Swap Shop diverted just under 300 lbs of clothing from landfill. Next one's the second Saturday of next month — always looking for a few extra hands.",
-    ageMs: 1000 * 60 * 60 * 27,
-    likes: 21,
-    liked: false,
-    reposted: true,
-    repostCount: 5,
-    comments: [],
-  },
-  {
-    id: "seed-5",
-    authorName: "Circ",
-    category: "circularity",
-    type: "update",
-    body: "Great turnout at last week's mixer — thanks to everyone who stopped by to see the Circ Lyocell samples in person. More coming to a few member studios this month.",
-    ageMs: 1000 * 60 * 60 * 30,
-    likes: 11,
-    liked: false,
-    reposted: false,
-    repostCount: 1,
-    comments: [
-      { author: "Gabriela Hearst", category: "retail", body: "The hand-feel on that sample was unreal, keep us posted.", ageMs: 1000 * 60 * 60 * 20 },
-    ],
-  },
-  {
-    id: "seed-6",
-    authorName: "CFDA",
-    category: "advocacy",
-    type: "update",
-    body: "Applications for this year's Sustainability track are opening soon — happy to answer questions in the thread if anyone's weighing whether to apply.",
-    ageMs: 1000 * 60 * 60 * 48,
-    likes: 8,
-    liked: false,
-    reposted: false,
-    repostCount: 0,
-    comments: [],
-  },
-];
 
 var PORTAL_SEED_THREADS = [
   {

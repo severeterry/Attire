@@ -1,11 +1,12 @@
 (function () {
   "use strict";
 
-  var PORTAL_STORAGE_KEY = "attire-portal-v1";
+  var sb = window.supabaseClient;
   var profile = null;
   var viewingOther = false;
   var otherName = null;
-  var otherListing = null;
+  var otherListing = null; // static directory member (?member=) — read-only, no real account
+  var otherProfile = null; // real Supabase member (?id=) — supports Request Intro
 
   function escapeHtml(str) {
     return String(str)
@@ -40,37 +41,6 @@
     return Math.round(hr / 24) + "d";
   }
 
-  function buildInitialPortalState() {
-    var now = Date.now();
-    var posts = PORTAL_SEED_POSTS.map(function (p) {
-      return {
-        id: p.id, authorName: p.authorName, category: p.category, type: p.type, body: p.body,
-        createdAt: now - p.ageMs, likes: p.likes, liked: p.liked, reposted: p.reposted, repostCount: p.repostCount,
-        comments: p.comments.map(function (c) {
-          return { author: c.author, category: c.category, body: c.body, createdAt: now - c.ageMs };
-        }),
-        commentsOpen: false,
-      };
-    });
-    var threads = PORTAL_SEED_THREADS.map(function (t) {
-      return {
-        id: t.id, name: t.name, category: t.category, unread: t.unread,
-        messages: t.messages.map(function (m) { return { from: m.from, text: m.text, createdAt: now - m.ageMs }; }),
-      };
-    });
-    return { posts: posts, threads: threads };
-  }
-
-  function loadPortalState() {
-    try {
-      var raw = localStorage.getItem(PORTAL_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    var fresh = buildInitialPortalState();
-    try { localStorage.setItem(PORTAL_STORAGE_KEY, JSON.stringify(fresh)); } catch (e) {}
-    return fresh;
-  }
-
   function renderBodyAvatar(name, category, avatarUrl) {
     var el = document.getElementById("profile-avatar");
     var img = avatarUrl ? '<img src="' + avatarUrl + '" alt="">' : escapeHtml(initials(name));
@@ -103,37 +73,45 @@
     }
   }
 
-  function renderStats() {
-    var portalState = loadPortalState();
-    var myPosts = portalState.posts.filter(function (p) { return p.authorName === profile.name; });
-    document.getElementById("stat-posts").textContent = myPosts.length;
-    document.getElementById("stat-connections").textContent = countConnections(profile.name);
-    return myPosts;
+  // ---- Deal Board posts tab (Supabase-backed) ----
+
+  async function fetchPostsBy(authorId) {
+    var res = await sb
+      .from("rfp_posts")
+      .select("id, post_type, category, scope, budget_range, deadline, body, status, created_at")
+      .eq("author_id", authorId)
+      .order("created_at", { ascending: false });
+    if (res.error) return [];
+    return res.data;
   }
 
   function renderPostsTab(posts) {
     var listEl = document.getElementById("profile-posts-list");
-    posts = posts.slice().sort(function (a, b) { return b.createdAt - a.createdAt; });
     if (!posts.length) {
-      listEl.innerHTML = '<div class="empty-state"><h3>No posts yet</h3><p>Anything shared to the feed will show up here.</p></div>';
+      listEl.innerHTML = '<div class="empty-state"><h3>No posts yet</h3><p>Deal Board RFPs and sourcing posts will show up here.</p></div>';
       return;
     }
     listEl.innerHTML = posts
       .map(function (post) {
-        var typeLabel = post.type === "deal" ? "Deal Board RFP" : post.type === "sourcing" ? "Sourcing" : "Update";
+        var typeLabel = post.post_type === "deal_board_rfp" ? "Deal Board RFP" : "Sourcing";
+        var details = [post.category, post.scope, post.budget_range, post.deadline].filter(Boolean).join(" &middot; ");
         return (
           '<article class="post-card">' +
           '<div class="post-meta-row"><span class="cat-badge">' + typeLabel + '</span>' +
-          "<span>&middot;</span><span>" + relativeTime(post.createdAt) + " ago</span></div>" +
+          "<span>&middot;</span><span>" + relativeTime(new Date(post.created_at).getTime()) + " ago</span></div>" +
           '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
-          '<div class="post-meta-row" style="margin-top:0.6rem;">' +
-          "<span>" + post.likes + " likes</span><span>&middot;</span>" +
-          "<span>" + post.comments.length + " comments</span><span>&middot;</span>" +
-          "<span>" + post.repostCount + " reposts</span>" +
-          "</div></article>"
+          (details ? '<p class="settings-note">' + details + " &mdash; " + post.status + "</p>" : "") +
+          "</article>"
         );
       })
       .join("");
+  }
+
+  async function renderStats(authorId) {
+    var posts = await fetchPostsBy(authorId);
+    document.getElementById("stat-posts").textContent = posts.length;
+    document.getElementById("stat-connections").textContent = countConnections(profile.name);
+    return posts;
   }
 
   function renderAboutView() {
@@ -254,16 +232,333 @@
     }
   }
 
-  function renderOwnProfile() {
+  // ---- Request Intro (only shown for a real member viewed via ?id=) ----
+
+  function renderIntroRequestUi() {
+    var wrap = document.getElementById("intro-request-wrap");
+    var form = document.getElementById("intro-request-form");
+    if (!wrap || !form) return;
+
+    var eligible = otherProfile
+      && profile.tier && profile.tier !== "free"
+      && otherProfile.tier && otherProfile.tier !== "free"
+      && otherProfile.introOptIn
+      && otherProfile.id !== profile.id;
+
+    wrap.hidden = !eligible;
+    form.hidden = true;
+  }
+
+  document.addEventListener("DOMContentLoaded", async function () {
+    if (!window.AttireAuth) return;
+    var session = await window.AttireAuth.getSession();
+    if (!session) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    profile = await window.AttireAuth.getCurrentProfile();
+    if (!profile) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    var params = new URLSearchParams(window.location.search);
+    var idParam = params.get("id");
+    var memberParam = params.get("member");
+
+    if (idParam && idParam !== profile.id) {
+      viewingOther = true;
+      otherProfile = await window.AttireAuth.getPublicProfile(idParam);
+      if (otherProfile) {
+        otherName = otherProfile.orgName || otherProfile.name || "Member";
+        await renderOtherRealProfile();
+      } else {
+        document.getElementById("topbar-title").textContent = "Member not found";
+      }
+    } else if (memberParam && memberParam !== profile.name) {
+      viewingOther = true;
+      otherName = memberParam;
+      otherListing = (typeof LISTINGS !== "undefined" ? LISTINGS.find(function (l) { return l.name === memberParam; }) : null) || null;
+      renderOtherStaticListing(otherName, otherListing);
+    } else {
+      await renderOwnProfile();
+    }
+
+    if (viewingOther) {
+      document.getElementById("connect-btn").addEventListener("click", function () {
+        sendConnectionRequest(profile.name, otherName);
+        renderConnectActions(otherName);
+      });
+      document.getElementById("cancel-request-btn").addEventListener("click", function () {
+        removeConnection(profile.name, otherName);
+        renderConnectActions(otherName);
+      });
+      document.getElementById("accept-request-btn").addEventListener("click", function () {
+        respondToConnectionRequest(profile.name, otherName, true);
+        renderConnectActions(otherName);
+        document.getElementById("stat-connections").textContent = countConnections(otherName);
+      });
+      document.getElementById("decline-request-btn").addEventListener("click", function () {
+        respondToConnectionRequest(profile.name, otherName, false);
+        renderConnectActions(otherName);
+      });
+      document.getElementById("remove-connection-btn").addEventListener("click", function () {
+        removeConnection(profile.name, otherName);
+        renderConnectActions(otherName);
+        document.getElementById("stat-connections").textContent = countConnections(otherName);
+      });
+
+      var requestIntroBtn = document.getElementById("request-intro-btn");
+      var introForm = document.getElementById("intro-request-form");
+      var introStatus = document.getElementById("intro-request-status");
+      var introError = document.getElementById("intro-request-error");
+
+      if (requestIntroBtn && otherProfile) {
+        requestIntroBtn.addEventListener("click", function () {
+          document.getElementById("intro-request-wrap").hidden = true;
+          introForm.hidden = false;
+          document.getElementById("intro-request-note").focus();
+        });
+
+        introForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var note = document.getElementById("intro-request-note").value.trim();
+          if (!note) return;
+          introError.hidden = true;
+          var submitBtn = introForm.querySelector('button[type="submit"]');
+          submitBtn.disabled = true;
+
+          sb.from("intro_requests").insert({
+            requestor_id: profile.id,
+            requestee_id: otherProfile.id,
+            note: note,
+          }).then(function (res) {
+            submitBtn.disabled = false;
+            if (res.error) {
+              introError.textContent = res.error.message;
+              introError.hidden = false;
+              return;
+            }
+            introForm.hidden = true;
+            introStatus.textContent = "Intro request sent.";
+            introStatus.hidden = false;
+          });
+        });
+      }
+
+      return; // nothing below applies when viewing someone else's read-only profile
+    }
+
+    // Avatar upload
+    var avatarEditBtn = document.getElementById("avatar-edit-btn");
+    var avatarInput = document.getElementById("avatar-input");
+    avatarEditBtn.addEventListener("click", function () { avatarInput.click(); });
+    avatarInput.addEventListener("change", function () {
+      var file = avatarInput.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        profile.avatar = reader.result;
+        window.AttireAuth.updateProfileFields(profile.id, { avatar_url: profile.avatar });
+        renderBodyAvatar(profile.name, profile.category, profile.avatar);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // About edit toggle
+    var editBtn = document.getElementById("edit-profile-btn");
+    var aboutView = document.getElementById("about-view");
+    var practicesCard = document.getElementById("field-practices");
+    var aboutForm = document.getElementById("about-form");
+
+    editBtn.addEventListener("click", function () {
+      fillAboutForm();
+      aboutView.hidden = true;
+      practicesCard.hidden = true;
+      aboutForm.hidden = false;
+    });
+    document.getElementById("cancel-edit-btn").addEventListener("click", function () {
+      aboutView.hidden = false;
+      practicesCard.hidden = false;
+      aboutForm.hidden = true;
+    });
+    aboutForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      profile.orgName = document.getElementById("edit-org-name").value.trim();
+      profile.bio = document.getElementById("edit-bio").value.trim();
+      profile.email = document.getElementById("edit-email").value.trim();
+      profile.website = document.getElementById("edit-website").value.trim();
+      profile.borough = document.getElementById("edit-borough").value;
+      profile.category = document.getElementById("edit-category").value;
+      profile.practices = Array.from(document.querySelectorAll('#edit-practices .cat-pill[aria-pressed="true"]')).map(function (chip) {
+        return chip.dataset.practice;
+      });
+
+      await window.AttireAuth.updateProfileFields(profile.id, {
+        org_name: profile.orgName, bio: profile.bio, website: profile.website,
+        borough: profile.borough, category: profile.category, practices: profile.practices,
+      });
+      await window.AttireAuth.updateContactFields(profile.id, { email: profile.email });
+
+      renderHeaderInfo();
+      renderBodyAvatar(profile.name, profile.category, profile.avatar);
+      renderStats(profile.id);
+      renderAboutView();
+      aboutView.hidden = false;
+      practicesCard.hidden = false;
+      aboutForm.hidden = true;
+    });
+
+    // Settings
+    document.getElementById("cancel-subscription-btn").addEventListener("click", function () {
+      document.getElementById("cancel-confirm").hidden = false;
+    });
+    document.getElementById("cancel-confirm-no").addEventListener("click", function () {
+      document.getElementById("cancel-confirm").hidden = true;
+    });
+    document.getElementById("cancel-confirm-yes").addEventListener("click", async function () {
+      var billing = profile.billing;
+      var patch = { tier: "free", billing: null };
+      if (billing && billing.termMonths > 1) {
+        var modeInput = document.querySelector('input[name="cancel-refund-mode"]:checked');
+        var mode = modeInput ? modeInput.value : "refund";
+        if (mode === "credit") {
+          profile.accountCredit = (profile.accountCredit || 0) + billing.totalDue;
+          patch.account_credit = profile.accountCredit;
+        }
+        // "refund" mode: the prepaid balance goes back to the original payment method — nothing to track locally.
+      }
+      profile.tier = "free";
+      profile.billing = null;
+      await window.AttireAuth.updateProfileFields(profile.id, patch);
+      document.getElementById("cancel-confirm").hidden = true;
+      renderPlanManagement();
+    });
+
+    // Upgrade payment modal
+    var paymentBackdrop = document.getElementById("payment-modal-backdrop");
+    var paymentForm = document.getElementById("payment-modal-form");
+    var paymentSuccess = document.getElementById("payment-modal-success");
+
+    document.getElementById("upgrade-plan-btn").addEventListener("click", function () {
+      var suggested = (profile.tier || "individual") === "individual" ? "organization" : "individual";
+      document.querySelectorAll('input[name="modal-plan"]').forEach(function (input) {
+        input.checked = input.value === suggested;
+      });
+      paymentForm.hidden = false;
+      paymentForm.reset();
+      document.getElementById("modal-plan-choice-row").hidden = false;
+      paymentSuccess.hidden = true;
+      paymentBackdrop.classList.add("is-open");
+    });
+
+    function closePaymentModal() { paymentBackdrop.classList.remove("is-open"); }
+    document.getElementById("payment-modal-close").addEventListener("click", closePaymentModal);
+    paymentBackdrop.addEventListener("click", function (e) { if (e.target === paymentBackdrop) closePaymentModal(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePaymentModal(); });
+
+    paymentForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var chosen = document.querySelector('input[name="modal-plan"]:checked').value;
+      var submitBtn = document.getElementById("payment-modal-submit");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Processing…";
+      setTimeout(function () {
+        profile.tier = chosen;
+        window.AttireAuth.updateProfileFields(profile.id, { tier: chosen }).then(function () {
+          paymentForm.hidden = true;
+          document.getElementById("modal-plan-choice-row").hidden = true;
+          paymentSuccess.hidden = false;
+          renderPlanManagement();
+          setTimeout(function () {
+            closePaymentModal();
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Confirm & Upgrade";
+          }, 1400);
+        });
+      }, 800);
+    });
+
+    document.getElementById("setting-notify-messages").addEventListener("change", function (e) {
+      profile.settings.notifyMessages = e.target.checked;
+      window.AttireAuth.updateProfileFields(profile.id, { settings: profile.settings });
+    });
+    document.getElementById("setting-notify-deals").addEventListener("change", function (e) {
+      profile.settings.notifyDealBoard = e.target.checked;
+      window.AttireAuth.updateProfileFields(profile.id, { settings: profile.settings });
+    });
+    document.getElementById("setting-show-directory").addEventListener("change", function (e) {
+      profile.settings.showInDirectory = e.target.checked;
+      window.AttireAuth.updateProfileFields(profile.id, { settings: profile.settings });
+    });
+    document.getElementById("setting-dm-all").addEventListener("change", function (e) {
+      profile.settings.dmFromAllMembers = e.target.checked;
+      window.AttireAuth.updateProfileFields(profile.id, { settings: profile.settings });
+    });
+    document.getElementById("delete-account-btn").addEventListener("click", function () {
+      alert("Account deletion isn't available in this preview.");
+    });
+  });
+
+  async function renderOwnProfile() {
     renderBodyAvatar(profile.name, profile.category, profile.avatar);
     renderHeaderInfo();
-    var myPosts = renderStats();
+    var myPosts = await renderStats(profile.id);
     renderPostsTab(myPosts);
     renderAboutView();
     renderSettings();
   }
 
-  function renderOtherProfile(name, listing) {
+  // Real Supabase member, viewed via ?id= — supports Request Intro.
+  async function renderOtherRealProfile() {
+    document.title = otherName + " — Attire Member";
+    document.getElementById("topbar-title").textContent = otherName;
+    document.getElementById("back-to-feed-link").hidden = false;
+    document.getElementById("view-in-directory-btn").hidden = true;
+    document.getElementById("edit-profile-btn").hidden = true;
+    document.getElementById("avatar-edit-btn").hidden = true;
+    document.getElementById("settings-section").hidden = true;
+    document.getElementById("field-email").hidden = true;
+    document.getElementById("field-website").hidden = true;
+    document.getElementById("field-practices").hidden = true;
+
+    renderBodyAvatar(otherName, otherProfile.category, otherProfile.avatar);
+    document.getElementById("profile-name").textContent = otherName;
+    document.getElementById("profile-org").hidden = true;
+
+    var catBadge = document.getElementById("profile-category-badge");
+    if (otherProfile.category) {
+      catBadge.textContent = labelForCategory(otherProfile.category);
+      catBadge.setAttribute("data-cat", otherProfile.category);
+      catBadge.hidden = false;
+    } else {
+      catBadge.hidden = true;
+    }
+    var boroughBadge = document.getElementById("profile-borough-badge");
+    if (otherProfile.borough) {
+      boroughBadge.textContent = otherProfile.borough;
+      boroughBadge.hidden = false;
+    } else {
+      boroughBadge.hidden = true;
+    }
+
+    var theirPosts = await fetchPostsBy(otherProfile.id);
+    document.getElementById("stat-posts").textContent = theirPosts.length;
+    document.getElementById("stat-connections").textContent = countConnections(otherName);
+    renderPostsTab(theirPosts);
+
+    document.getElementById("view-bio").textContent = otherProfile.bio || "No bio yet.";
+    document.getElementById("view-borough").textContent = otherProfile.borough || "—";
+    document.getElementById("view-category").textContent = labelForCategory(otherProfile.category);
+
+    renderConnectActions(otherName);
+    renderIntroRequestUi();
+  }
+
+  // Static directory mock listing, viewed via ?member= — read-only, no
+  // Request Intro (not a real account).
+  function renderOtherStaticListing(name, listing) {
     document.title = name + " — Attire Member";
     document.getElementById("topbar-title").textContent = name;
     document.getElementById("back-to-feed-link").hidden = false;
@@ -304,203 +599,16 @@
       boroughBadge.hidden = true;
     }
 
-    var portalState = loadPortalState();
-    var theirPosts = portalState.posts.filter(function (p) { return p.authorName === name; });
-    document.getElementById("stat-posts").textContent = theirPosts.length;
+    document.getElementById("stat-posts").textContent = 0;
     document.getElementById("stat-connections").textContent = countConnections(name);
-    renderPostsTab(theirPosts);
+    renderPostsTab([]);
 
     document.getElementById("view-bio").textContent = bio;
     document.getElementById("view-borough").textContent = borough || "—";
     document.getElementById("view-category").textContent = labelForCategory(category);
 
     renderConnectActions(name);
+    var introWrap = document.getElementById("intro-request-wrap");
+    if (introWrap) introWrap.hidden = true;
   }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    var auth = window.AttireAuth ? window.AttireAuth.getAuth() : null;
-    if (!auth || !auth.loggedIn) {
-      window.location.href = "index.html";
-      return;
-    }
-
-    profile = loadPortalProfile();
-
-    var params = new URLSearchParams(window.location.search);
-    var memberParam = params.get("member");
-    if (memberParam && memberParam !== profile.name) {
-      viewingOther = true;
-      otherName = memberParam;
-      otherListing = (typeof LISTINGS !== "undefined" ? LISTINGS.find(function (l) { return l.name === memberParam; }) : null) || null;
-      renderOtherProfile(otherName, otherListing);
-    } else {
-      renderOwnProfile();
-    }
-
-    if (viewingOther) {
-      document.getElementById("connect-btn").addEventListener("click", function () {
-        sendConnectionRequest(profile.name, otherName);
-        renderConnectActions(otherName);
-      });
-      document.getElementById("cancel-request-btn").addEventListener("click", function () {
-        removeConnection(profile.name, otherName);
-        renderConnectActions(otherName);
-      });
-      document.getElementById("accept-request-btn").addEventListener("click", function () {
-        respondToConnectionRequest(profile.name, otherName, true);
-        renderConnectActions(otherName);
-        document.getElementById("stat-connections").textContent = countConnections(otherName);
-      });
-      document.getElementById("decline-request-btn").addEventListener("click", function () {
-        respondToConnectionRequest(profile.name, otherName, false);
-        renderConnectActions(otherName);
-      });
-      document.getElementById("remove-connection-btn").addEventListener("click", function () {
-        removeConnection(profile.name, otherName);
-        renderConnectActions(otherName);
-        document.getElementById("stat-connections").textContent = countConnections(otherName);
-      });
-      return; // nothing below applies when viewing someone else's read-only profile
-    }
-
-    // Avatar upload
-    var avatarEditBtn = document.getElementById("avatar-edit-btn");
-    var avatarInput = document.getElementById("avatar-input");
-    avatarEditBtn.addEventListener("click", function () { avatarInput.click(); });
-    avatarInput.addEventListener("change", function () {
-      var file = avatarInput.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function () {
-        profile.avatar = reader.result;
-        savePortalProfile(profile);
-        renderBodyAvatar(profile.name, profile.category, profile.avatar);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // About edit toggle
-    var editBtn = document.getElementById("edit-profile-btn");
-    var aboutView = document.getElementById("about-view");
-    var practicesCard = document.getElementById("field-practices");
-    var aboutForm = document.getElementById("about-form");
-
-    editBtn.addEventListener("click", function () {
-      fillAboutForm();
-      aboutView.hidden = true;
-      practicesCard.hidden = true;
-      aboutForm.hidden = false;
-    });
-    document.getElementById("cancel-edit-btn").addEventListener("click", function () {
-      aboutView.hidden = false;
-      practicesCard.hidden = false;
-      aboutForm.hidden = true;
-    });
-    aboutForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      profile.orgName = document.getElementById("edit-org-name").value.trim();
-      profile.bio = document.getElementById("edit-bio").value.trim();
-      profile.email = document.getElementById("edit-email").value.trim();
-      profile.website = document.getElementById("edit-website").value.trim();
-      profile.borough = document.getElementById("edit-borough").value;
-      profile.category = document.getElementById("edit-category").value;
-      profile.practices = Array.from(document.querySelectorAll('#edit-practices .cat-pill[aria-pressed="true"]')).map(function (chip) {
-        return chip.dataset.practice;
-      });
-      savePortalProfile(profile);
-      renderHeaderInfo();
-      renderBodyAvatar(profile.name, profile.category, profile.avatar);
-      renderStats();
-      renderAboutView();
-      aboutView.hidden = false;
-      practicesCard.hidden = false;
-      aboutForm.hidden = true;
-    });
-
-    // Settings
-    document.getElementById("cancel-subscription-btn").addEventListener("click", function () {
-      document.getElementById("cancel-confirm").hidden = false;
-    });
-    document.getElementById("cancel-confirm-no").addEventListener("click", function () {
-      document.getElementById("cancel-confirm").hidden = true;
-    });
-    document.getElementById("cancel-confirm-yes").addEventListener("click", function () {
-      var billing = profile.billing;
-      if (billing && billing.termMonths > 1) {
-        var modeInput = document.querySelector('input[name="cancel-refund-mode"]:checked');
-        var mode = modeInput ? modeInput.value : "refund";
-        if (mode === "credit") {
-          profile.accountCredit = (profile.accountCredit || 0) + billing.totalDue;
-        }
-        // "refund" mode: the prepaid balance goes back to the original payment method — nothing to track locally.
-      }
-      profile.tier = "free";
-      profile.billing = null;
-      savePortalProfile(profile);
-      document.getElementById("cancel-confirm").hidden = true;
-      renderPlanManagement();
-    });
-
-    // Upgrade payment modal
-    var paymentBackdrop = document.getElementById("payment-modal-backdrop");
-    var paymentForm = document.getElementById("payment-modal-form");
-    var paymentSuccess = document.getElementById("payment-modal-success");
-
-    document.getElementById("upgrade-plan-btn").addEventListener("click", function () {
-      var suggested = (profile.tier || "individual") === "individual" ? "organization" : "individual";
-      document.querySelectorAll('input[name="modal-plan"]').forEach(function (input) {
-        input.checked = input.value === suggested;
-      });
-      paymentForm.hidden = false;
-      paymentForm.reset();
-      document.getElementById("modal-plan-choice-row").hidden = false;
-      paymentSuccess.hidden = true;
-      paymentBackdrop.classList.add("is-open");
-    });
-
-    function closePaymentModal() { paymentBackdrop.classList.remove("is-open"); }
-    document.getElementById("payment-modal-close").addEventListener("click", closePaymentModal);
-    paymentBackdrop.addEventListener("click", function (e) { if (e.target === paymentBackdrop) closePaymentModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePaymentModal(); });
-
-    paymentForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var chosen = document.querySelector('input[name="modal-plan"]:checked').value;
-      var submitBtn = document.getElementById("payment-modal-submit");
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Processing…";
-      setTimeout(function () {
-        profile.tier = chosen;
-        savePortalProfile(profile);
-        paymentForm.hidden = true;
-        document.getElementById("modal-plan-choice-row").hidden = true;
-        paymentSuccess.hidden = false;
-        renderPlanManagement();
-        setTimeout(function () {
-          closePaymentModal();
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Confirm & Upgrade";
-        }, 1400);
-      }, 800);
-    });
-    document.getElementById("setting-notify-messages").addEventListener("change", function (e) {
-      profile.settings.notifyMessages = e.target.checked;
-      savePortalProfile(profile);
-    });
-    document.getElementById("setting-notify-deals").addEventListener("change", function (e) {
-      profile.settings.notifyDealBoard = e.target.checked;
-      savePortalProfile(profile);
-    });
-    document.getElementById("setting-show-directory").addEventListener("change", function (e) {
-      profile.settings.showInDirectory = e.target.checked;
-      savePortalProfile(profile);
-    });
-    document.getElementById("setting-dm-all").addEventListener("change", function (e) {
-      profile.settings.dmFromAllMembers = e.target.checked;
-      savePortalProfile(profile);
-    });
-    document.getElementById("delete-account-btn").addEventListener("click", function () {
-      alert("Account deletion isn't available in this preview.");
-    });
-  });
 })();

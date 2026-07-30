@@ -3,14 +3,20 @@
 
   var PRICES = { individual: 15, organization: 18 };
 
-  document.addEventListener("DOMContentLoaded", function () {
-    var auth = window.AttireAuth ? window.AttireAuth.getAuth() : null;
-    if (!auth || !auth.loggedIn) {
+  document.addEventListener("DOMContentLoaded", async function () {
+    if (!window.AttireAuth) return;
+    var session = await window.AttireAuth.getSession();
+    if (!session) {
       window.location.href = "index.html";
       return;
     }
 
-    var profile = loadPortalProfile();
+    var profile = await window.AttireAuth.getCurrentProfile();
+    if (!profile) {
+      window.location.href = "index.html";
+      return;
+    }
+
     var params = new URLSearchParams(window.location.search);
     var requestedPlan = params.get("plan");
 
@@ -56,14 +62,14 @@
       submitBtn.textContent = "Processing…";
 
       setTimeout(function () {
-        profile.tier = plan;
-        savePortalProfile(profile);
-        form.hidden = true;
-        document.getElementById("plan-choice-card").hidden = true;
-        document.getElementById("payment-success-note").textContent =
-          "You're now on the " + (plan === "organization" ? "Organization Membership" : "Individual / Affiliate") + " plan. Redirecting to your profile…";
-        successPanel.hidden = false;
-        setTimeout(function () { window.location.href = "profile.html"; }, 1600);
+        window.AttireAuth.updateProfileFields(profile.id, { tier: plan }).then(function () {
+          form.hidden = true;
+          document.getElementById("plan-choice-card").hidden = true;
+          document.getElementById("payment-success-note").textContent =
+            "You're now on the " + (plan === "organization" ? "Organization Membership" : "Individual / Affiliate") + " plan. Redirecting to your profile…";
+          successPanel.hidden = false;
+          setTimeout(function () { window.location.href = "profile.html"; }, 1600);
+        });
       }, 900);
     });
   });
