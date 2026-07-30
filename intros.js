@@ -71,7 +71,7 @@
   function setupIntroMemberFilters() {
     var searchInput = document.getElementById("intro-search-input");
     var boroughSelect = document.getElementById("intro-borough-select");
-    var pillRow = document.getElementById("intro-category-pills");
+    var sidebarFilters = document.getElementById("sidebar-category-filters");
 
     searchInput.addEventListener("input", function () {
       introFilterState.search = searchInput.value.trim();
@@ -81,12 +81,12 @@
       introFilterState.borough = boroughSelect.value;
       renderIntroMembers();
     });
-    pillRow.addEventListener("click", function (e) {
-      var pill = e.target.closest(".cat-pill");
-      if (!pill) return;
-      introFilterState.category = pill.dataset.cat;
-      pillRow.querySelectorAll(".cat-pill").forEach(function (p) {
-        p.setAttribute("aria-pressed", String(p === pill));
+    sidebarFilters.addEventListener("click", function (e) {
+      var link = e.target.closest(".app-sidebar-category-link");
+      if (!link) return;
+      introFilterState.category = link.dataset.cat;
+      sidebarFilters.querySelectorAll(".app-sidebar-category-link").forEach(function (l) {
+        l.classList.toggle("is-active", l === link);
       });
       renderIntroMembers();
     });

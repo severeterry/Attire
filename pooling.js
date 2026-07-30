@@ -3,6 +3,8 @@
 
   var sb = window.supabaseClient;
   var profile = null;
+  var pools = [];
+  var filterState = { category: "all", sort: "newest" };
 
   function escapeHtml(str) {
     return String(str)
@@ -10,34 +12,63 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  async function loadPoolList() {
+  async function fetchPools() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, category, target_group_size, participant_cap, closes_at, status, pooling_participants(count)")
+      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, profiles(org_name, contact_name, category), pooling_participants(count)")
       .order("created_at", { ascending: false });
+    if (res.error) { console.error(res.error); return []; }
+    return res.data;
+  }
 
+  function visiblePools() {
+    var list = pools.slice();
+    if (filterState.category !== "all") {
+      list = list.filter(function (p) { return p.profiles && p.profiles.category === filterState.category; });
+    }
+    if (filterState.sort === "oldest") {
+      list.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+    } else {
+      list.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+    }
+    return list;
+  }
+
+  function poolCardHtml(pool) {
+    var joined = (pool.pooling_participants && pool.pooling_participants[0] && pool.pooling_participants[0].count) || 0;
+    return (
+      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="post-card" style="display:block;">' +
+      '<p class="post-author-name">' + escapeHtml(pool.title) + "</p>" +
+      '<p class="settings-note">' +
+      (pool.category === "materials" ? "Materials Co-Op" : "Service Co-Op") + " &mdash; " +
+      joined + " of " + pool.target_group_size + " joined" +
+      (pool.participant_cap ? " (cap " + pool.participant_cap + ")" : "") + " &mdash; " + pool.status +
+      "</p></a>"
+    );
+  }
+
+  function renderPoolList() {
     var listEl = document.getElementById("pooling-list");
-    if (res.error) {
-      listEl.innerHTML = '<p class="settings-note">' + escapeHtml(res.error.message) + "</p>";
-      return;
-    }
-    if (!res.data.length) {
-      listEl.innerHTML = '<p class="settings-note">No Co-Ops yet — start one above.</p>';
-      return;
-    }
+    var visible = visiblePools();
+    listEl.innerHTML = visible.length
+      ? visible.map(poolCardHtml).join("")
+      : '<p class="settings-note">No Co-Ops match those filters.</p>';
 
-    listEl.innerHTML = res.data.map(function (pool) {
-      var joined = (pool.pooling_participants && pool.pooling_participants[0] && pool.pooling_participants[0].count) || 0;
-      return (
-        '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="post-card" style="display:block;">' +
-        '<p class="post-author-name">' + escapeHtml(pool.title) + "</p>" +
-        '<p class="settings-note">' +
-        (pool.category === "materials" ? "Materials Co-Op" : "Service Co-Op") + " &mdash; " +
-        joined + " of " + pool.target_group_size + " joined" +
-        (pool.participant_cap ? " (cap " + pool.participant_cap + ")" : "") + " &mdash; " + pool.status +
-        "</p></a>"
-      );
-    }).join("");
+    var countEl = document.getElementById("pooling-result-count");
+    if (countEl) countEl.textContent = visible.length + (visible.length === 1 ? " Co-Op" : " Co-Ops");
+  }
+
+  function renderRecent() {
+    var recentEl = document.getElementById("pooling-recent-list");
+    if (!recentEl) return;
+    var recent = pools.slice(0, 5);
+    recentEl.innerHTML = recent.length
+      ? recent.map(function (p) {
+          var organizer = p.profiles || {};
+          var name = organizer.org_name || organizer.contact_name || "Member";
+          return '<a class="app-context-recent-item" href="pooling.html?id=' + encodeURIComponent(p.id) + '">' + escapeHtml(p.title) + "<span>Organized by " + escapeHtml(name) + "</span></a>";
+        }).join("")
+      : '<p class="settings-note">No Co-Ops yet.</p>';
   }
 
   function setupCreateForm() {
@@ -212,7 +243,9 @@
     }
 
     if (profile.tier === "free") {
-      document.getElementById("pooling-list-view").innerHTML =
+      var listView = document.getElementById("pooling-list-view");
+      listView.className = "app-content app-content--scroll";
+      listView.innerHTML =
         '<div class="checkout-wrap" style="text-align:center;">' +
         '<h1 class="section-title">The Co-Op</h1>' +
         '<p class="section-lede">The Co-Op is a paid-member feature. Upgrade to Individual/Affiliate or Organization to join or start a Co-Op.</p>' +
@@ -223,9 +256,27 @@
     var poolId = new URLSearchParams(window.location.search).get("id");
     if (poolId) {
       loadDetail(poolId);
-    } else {
-      setupCreateForm();
-      loadPoolList();
+      return;
     }
+
+    setupCreateForm();
+    pools = await fetchPools();
+    renderPoolList();
+    renderRecent();
+
+    document.getElementById("pooling-sort-select").addEventListener("change", function (e) {
+      filterState.sort = e.target.value;
+      renderPoolList();
+    });
+
+    document.getElementById("sidebar-category-filters").addEventListener("click", function (e) {
+      var link = e.target.closest(".app-sidebar-category-link");
+      if (!link) return;
+      filterState.category = link.dataset.cat;
+      document.querySelectorAll("#sidebar-category-filters .app-sidebar-category-link").forEach(function (l) {
+        l.classList.toggle("is-active", l === link);
+      });
+      renderPoolList();
+    });
   });
 })();

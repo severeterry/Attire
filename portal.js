@@ -4,7 +4,7 @@
   var sb = window.supabaseClient;
   var profile = null;
   var dealPosts = [];
-  var activeFilter = "all";
+  var filterState = { category: "all", type: "all", sort: "newest" };
 
   function initials(name) {
     var parts = name.trim().split(/\s+/);
@@ -96,22 +96,52 @@
     );
   }
 
-  function renderFeed() {
-    var feedEl = document.getElementById("portal-feed-list");
-    if (!feedEl) return;
+  function visiblePosts() {
     var posts = dealPosts.slice();
-    if (activeFilter === "deal") posts = posts.filter(function (p) { return p.post_type === "deal_board_rfp"; });
-    else if (activeFilter === "sourcing") posts = posts.filter(function (p) { return p.post_type === "sourcing"; });
-
+    if (filterState.category !== "all") {
+      posts = posts.filter(function (p) { return p.profiles && p.profiles.category === filterState.category; });
+    }
+    if (filterState.type !== "all") {
+      posts = posts.filter(function (p) { return p.post_type === filterState.type; });
+    }
     var searchEl = document.getElementById("feed-search");
     var query = (searchEl && searchEl.value || "").trim().toLowerCase();
     if (query) {
       posts = posts.filter(function (p) { return p.body.toLowerCase().indexOf(query) !== -1; });
     }
+    if (filterState.sort === "oldest") {
+      posts.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+    } else {
+      posts.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+    }
+    return posts;
+  }
+
+  function renderFeed() {
+    var feedEl = document.getElementById("portal-feed-list");
+    if (!feedEl) return;
+    var posts = visiblePosts();
 
     feedEl.innerHTML = posts.length
       ? posts.map(dealPostHtml).join("")
       : '<div class="empty-state"><h3>Nothing here yet</h3><p>Exchange listings from members will show up in this view.</p></div>';
+
+    var countEl = document.getElementById("exchange-result-count");
+    if (countEl) countEl.textContent = posts.length + (posts.length === 1 ? " listing" : " listings");
+  }
+
+  function renderRecent() {
+    var recentEl = document.getElementById("exchange-recent-list");
+    if (!recentEl) return;
+    var recent = dealPosts.slice(0, 5);
+    recentEl.innerHTML = recent.length
+      ? recent.map(function (p) {
+          var author = p.profiles || {};
+          var name = author.org_name || author.contact_name || "Member";
+          var preview = p.body.length > 60 ? p.body.slice(0, 60) + "…" : p.body;
+          return '<a class="app-context-recent-item" href="#" data-scroll-to="' + p.id + '">' + escapeHtml(preview) + "<span>" + escapeHtml(name) + "</span></a>";
+        }).join("")
+      : '<p class="settings-note">No listings yet.</p>';
   }
 
   async function respondToPost(postId) {
@@ -178,6 +208,8 @@
     applyTierGates();
 
     dealPosts = await fetchDealPosts();
+    renderFeed();
+    renderRecent();
 
     var composerForm = document.getElementById("composer-form");
     var composerError = document.getElementById("composer-error");
@@ -216,11 +248,32 @@
         fetchDealPosts().then(function (posts) {
           dealPosts = posts;
           renderFeed();
+          renderRecent();
         });
       });
     });
 
     document.getElementById("feed-search").addEventListener("input", renderFeed);
+
+    document.getElementById("exchange-type-select").addEventListener("change", function (e) {
+      filterState.type = e.target.value;
+      renderFeed();
+    });
+
+    document.getElementById("exchange-sort-select").addEventListener("change", function (e) {
+      filterState.sort = e.target.value;
+      renderFeed();
+    });
+
+    document.getElementById("sidebar-category-filters").addEventListener("click", function (e) {
+      var link = e.target.closest(".app-sidebar-category-link");
+      if (!link) return;
+      filterState.category = link.dataset.cat;
+      document.querySelectorAll("#sidebar-category-filters .app-sidebar-category-link").forEach(function (l) {
+        l.classList.toggle("is-active", l === link);
+      });
+      renderFeed();
+    });
 
     var feedEl = document.getElementById("portal-feed-list");
     feedEl.addEventListener("click", function (e) {
@@ -229,6 +282,12 @@
       respondToPost(respondBtn.dataset.id);
     });
 
-    renderFeed();
+    document.getElementById("exchange-recent-list").addEventListener("click", function (e) {
+      var link = e.target.closest("[data-scroll-to]");
+      if (!link) return;
+      e.preventDefault();
+      var card = document.querySelector('.post-card[data-id="' + link.dataset.scrollTo + '"]');
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   });
 })();

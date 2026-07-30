@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=33">
+<link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body class="portal-page">
 
@@ -51,6 +51,34 @@
       </a>
     </nav>
 
+    <p class="app-sidebar-section-label">Categories</p>
+    <nav class="app-sidebar-nav" aria-label="Filter by category" id="sidebar-category-filters">
+      <button type="button" class="app-sidebar-category-link is-active" data-cat="all">
+        <span class="app-sidebar-category-dot"></span>
+        <span>All Categories</span>
+      </button>
+      <button type="button" class="app-sidebar-category-link" data-cat="materials">
+        <span class="app-sidebar-category-dot"></span>
+        <span>Materials &amp; Making</span>
+      </button>
+      <button type="button" class="app-sidebar-category-link" data-cat="circularity">
+        <span class="app-sidebar-category-dot"></span>
+        <span>Circularity &amp; Disposal</span>
+      </button>
+      <button type="button" class="app-sidebar-category-link" data-cat="strategy">
+        <span class="app-sidebar-category-dot"></span>
+        <span>Strategy &amp; Expertise</span>
+      </button>
+      <button type="button" class="app-sidebar-category-link" data-cat="advocacy">
+        <span class="app-sidebar-category-dot"></span>
+        <span>Advocacy &amp; Community</span>
+      </button>
+      <button type="button" class="app-sidebar-category-link" data-cat="retail">
+        <span class="app-sidebar-category-dot"></span>
+        <span>Retail &amp; Creators</span>
+      </button>
+    </nav>
+
     <div class="app-sidebar-spacer"></div>
 
     <a href="profile.html" class="app-sidebar-account">
@@ -72,8 +100,8 @@
       <div class="app-topbar-spacer"></div>
     </header>
 
-    <div class="app-content app-content--scroll">
-      <div class="checkout-wrap">
+    <div class="app-content app-content--rows">
+      <main class="app-main">
         <form class="composer-card" id="feed-composer-form">
           <div class="composer-top">
             <span class="portal-avatar" id="composer-avatar" aria-hidden="true"></span>
@@ -85,8 +113,29 @@
           </div>
         </form>
 
-        <div id="feed-list" style="margin-top:var(--space-3); display:flex; flex-direction:column; gap:var(--space-3);"></div>
-      </div>
+        <div class="app-main-toolbar">
+          <span class="settings-note" id="feed-result-count" style="margin:0;"></span>
+          <select class="filter-select" id="feed-sort-select" aria-label="Sort posts">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="most-liked">Most liked</option>
+          </select>
+        </div>
+
+        <div id="feed-list" style="display:flex; flex-direction:column; gap:var(--space-3);"></div>
+      </main>
+
+      <aside class="app-context">
+        <div class="app-context-section">
+          <p class="app-context-kicker">About</p>
+          <h3>The Feed</h3>
+          <p>Everyday updates from the network — wins, questions, and anything that doesn't need the formality of an Exchange listing or a Co-Op. Open to every member, any tier.</p>
+        </div>
+        <div class="app-context-section">
+          <p class="app-context-kicker">Recent posts</p>
+          <div id="feed-recent-list"></div>
+        </div>
+      </aside>
     </div>
   </div>
 </div>
@@ -99,6 +148,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=4"></script>
 <script src="shell.js?v=3"></script>
-<script src="feed.js?v=1"></script>
+<script src="feed.js?v=2"></script>
 </body>
 </html>

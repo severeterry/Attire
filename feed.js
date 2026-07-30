@@ -6,6 +6,7 @@
   var posts = [];
   var likedPostIds = new Set();
   var openComments = new Set();
+  var filterState = { category: "all", sort: "newest" };
 
   function escapeHtml(str) {
     return String(str)
@@ -66,17 +67,46 @@
       : '<p class="settings-note">No comments yet.</p>';
   }
 
+  function likeCountOf(post) {
+    return (post.post_likes && post.post_likes[0] && post.post_likes[0].count) || 0;
+  }
+  function commentCountOf(post) {
+    return (post.post_comments && post.post_comments[0] && post.post_comments[0].count) || 0;
+  }
+
+  function visiblePosts() {
+    var list = posts.slice();
+    if (filterState.category !== "all") {
+      list = list.filter(function (p) { return p.profiles && p.profiles.category === filterState.category; });
+    }
+    if (filterState.sort === "oldest") {
+      list.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+    } else if (filterState.sort === "most-liked") {
+      list.sort(function (a, b) { return likeCountOf(b) - likeCountOf(a); });
+    } else {
+      list.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+    }
+    return list;
+  }
+
   function postCardHtml(post) {
     var author = post.profiles || {};
     var name = author.org_name || author.contact_name || "Member";
     var authorLink = post.author_id === profile.id ? "profile.html" : "profile.html?id=" + encodeURIComponent(post.author_id);
-    var likeCount = (post.post_likes && post.post_likes[0] && post.post_likes[0].count) || 0;
-    var commentCount = (post.post_comments && post.post_comments[0] && post.post_comments[0].count) || 0;
+    var likeCount = likeCountOf(post);
+    var commentCount = commentCountOf(post);
     var liked = likedPostIds.has(post.id);
     var isOpen = openComments.has(post.id);
 
     return (
-      '<article class="post-card" data-id="' + post.id + '">' +
+      '<article class="post-card post-card--voteable" data-id="' + post.id + '">' +
+      '<div class="post-vote-col">' +
+      '<button type="button" class="post-vote-btn" data-action="like" data-id="' + post.id + '" aria-pressed="' + liked + '" aria-label="Like">' +
+      (liked ? "&#9829;" : "&#9825;") +
+      "</button>" +
+      '<span class="post-vote-count">' + likeCount + "</span>" +
+      "</div>" +
+      '<div class="post-vote-body">' +
       '<div class="post-head">' +
       '<a href="' + authorLink + '">' + avatarHtml(name, author.category, author.avatar_url) + "</a>" +
       "<div>" +
@@ -85,9 +115,6 @@
       "</div></div>" +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
       '<div class="post-actions">' +
-      '<button type="button" class="btn btn-outline btn-sm" data-action="like" data-id="' + post.id + '" aria-pressed="' + liked + '">' +
-      (liked ? "&#9829;" : "&#9825;") + " " + likeCount +
-      "</button>" +
       '<button type="button" class="btn btn-outline btn-sm" data-action="toggle-comments" data-id="' + post.id + '">Comments (' + commentCount + ")</button>" +
       "</div>" +
       '<div class="feed-comments" data-comments-for="' + post.id + '"' + (isOpen ? "" : " hidden") + ' style="margin-top:0.6rem;">' +
@@ -97,16 +124,35 @@
       '<button type="submit" class="icon-btn" aria-label="Send comment"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg></button>' +
       "</form>" +
       "</div>" +
+      "</div>" +
       "</article>"
     );
   }
 
   function renderFeed() {
     var listEl = document.getElementById("feed-list");
-    listEl.innerHTML = posts.length
-      ? posts.map(postCardHtml).join("")
+    var visible = visiblePosts();
+    listEl.innerHTML = visible.length
+      ? visible.map(postCardHtml).join("")
       : '<div class="empty-state"><h3>Nothing here yet</h3><p>Be the first to share an update with the network.</p></div>';
     openComments.forEach(function (postId) { loadComments(postId); });
+
+    var countEl = document.getElementById("feed-result-count");
+    if (countEl) countEl.textContent = visible.length + (visible.length === 1 ? " post" : " posts");
+  }
+
+  function renderRecent() {
+    var recentEl = document.getElementById("feed-recent-list");
+    if (!recentEl) return;
+    var recent = posts.slice(0, 5);
+    recentEl.innerHTML = recent.length
+      ? recent.map(function (p) {
+          var author = p.profiles || {};
+          var name = author.org_name || author.contact_name || "Member";
+          var preview = p.body.length > 60 ? p.body.slice(0, 60) + "…" : p.body;
+          return '<a class="app-context-recent-item" href="#" data-scroll-to="' + p.id + '">' + escapeHtml(preview) + "<span>" + escapeHtml(name) + "</span></a>";
+        }).join("")
+      : '<p class="settings-note">No posts yet.</p>';
   }
 
   document.addEventListener("DOMContentLoaded", async function () {
@@ -130,6 +176,7 @@
     await fetchMyLikes();
     posts = await fetchPosts();
     renderFeed();
+    renderRecent();
 
     var composerForm = document.getElementById("feed-composer-form");
     var composerError = document.getElementById("feed-composer-error");
@@ -151,8 +198,23 @@
           return;
         }
         composerTextarea.value = "";
-        fetchPosts().then(function (p) { posts = p; renderFeed(); });
+        fetchPosts().then(function (p) { posts = p; renderFeed(); renderRecent(); });
       });
+    });
+
+    document.getElementById("feed-sort-select").addEventListener("change", function (e) {
+      filterState.sort = e.target.value;
+      renderFeed();
+    });
+
+    document.getElementById("sidebar-category-filters").addEventListener("click", function (e) {
+      var link = e.target.closest(".app-sidebar-category-link");
+      if (!link) return;
+      filterState.category = link.dataset.cat;
+      document.querySelectorAll("#sidebar-category-filters .app-sidebar-category-link").forEach(function (l) {
+        l.classList.toggle("is-active", l === link);
+      });
+      renderFeed();
     });
 
     var listEl = document.getElementById("feed-list");
@@ -199,6 +261,14 @@
         input.value = "";
         fetchPosts().then(function (p) { posts = p; renderFeed(); });
       });
+    });
+
+    document.getElementById("feed-recent-list").addEventListener("click", function (e) {
+      var link = e.target.closest("[data-scroll-to]");
+      if (!link) return;
+      e.preventDefault();
+      var card = document.querySelector('.post-card[data-id="' + link.dataset.scrollTo + '"]');
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   });
 })();

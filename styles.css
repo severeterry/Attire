@@ -1236,6 +1236,49 @@ body:has(.app-shell) { overflow: hidden; }
 .context-card p { font-size: 0.82rem; color: var(--color-ink-soft); margin: 0 0 var(--space-2); }
 .context-card .btn { width: 100%; margin-top: 0.4rem; }
 
+/* ---------- About-this-page + recent-activity panel (app-context) ---------- */
+.app-context-section { margin-bottom: var(--space-4); }
+.app-context-kicker { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-dark-accent); margin-bottom: 0.3rem; }
+.app-context-section p { font-size: 0.85rem; color: var(--color-dark-text-soft); line-height: 1.55; margin: 0 0 var(--space-2); }
+.app-context-section .btn { width: 100%; }
+.app-context-recent-item {
+  display: block; padding: 0.55rem 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 0.82rem; color: var(--color-dark-text-soft); text-decoration: none; line-height: 1.4;
+}
+.app-context-recent-item:last-child { border-bottom: none; }
+.app-context-recent-item:hover { color: #fff; }
+.app-context-recent-item span { display: block; font-size: 0.72rem; color: var(--color-dark-text-faint); margin-top: 0.15rem; }
+
+/* ---------- Sidebar: category shortcuts (Feed/Exchange/Co-Op/Intros) ---------- */
+.app-sidebar-section-label { margin-top: var(--space-2); }
+.app-sidebar-category-link {
+  display: flex; align-items: center; gap: 0.65rem; width: 100%; text-align: left;
+  background: none; border: none; cursor: pointer; text-decoration: none;
+  padding: 0.5rem 0.7rem; border-radius: var(--radius-sm);
+  font-size: 0.85rem; color: var(--color-dark-text-soft);
+}
+.app-sidebar-category-link:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.app-sidebar-category-link.is-active { background: rgba(255,255,255,0.1); color: #fff; font-weight: 600; }
+.app-sidebar-category-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--color-dark-text-faint); }
+.app-sidebar-category-link[data-cat="materials"]   .app-sidebar-category-dot { background: var(--cat-materials-text); }
+.app-sidebar-category-link[data-cat="circularity"] .app-sidebar-category-dot { background: var(--cat-circularity-text); }
+.app-sidebar-category-link[data-cat="strategy"]    .app-sidebar-category-dot { background: var(--cat-strategy-text); }
+.app-sidebar-category-link[data-cat="advocacy"]    .app-sidebar-category-dot { background: var(--cat-advocacy-text); }
+.app-sidebar-category-link[data-cat="retail"]      .app-sidebar-category-dot { background: var(--cat-retail-text); }
+
+/* ---------- Sort/filter toolbar above a feed list ---------- */
+.app-main-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.app-main-toolbar .filter-select { min-width: 10rem; }
+
+/* ---------- Feed post cards: vote-style engagement column ---------- */
+.post-card--voteable { display: flex; gap: 0.85rem; }
+.post-vote-col { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; flex-shrink: 0; padding-top: 0.1rem; }
+.post-vote-btn { background: none; border: none; cursor: pointer; font-size: 1.15rem; line-height: 1; color: var(--color-ink-soft); padding: 0.25rem; border-radius: var(--radius-sm); }
+.post-vote-btn:hover { background: var(--color-brand-tint); }
+.post-vote-btn[aria-pressed="true"] { color: var(--color-stamp); }
+.post-vote-count { font-size: 0.78rem; font-weight: 700; color: var(--color-ink-soft); }
+.post-vote-body { flex: 1; min-width: 0; }
+
 /* ---------- Composer & feed (reused inside app-main) ---------- */
 .composer-card { background: #fff; border-radius: var(--radius-md); border: 1px solid var(--color-border); padding: var(--space-3); }
 .composer-top { display: flex; gap: 0.75rem; }
