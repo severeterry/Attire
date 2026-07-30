@@ -12,10 +12,31 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  function initials(name) {
+    var parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function relativeTime(ts) {
+    var diff = Math.max(0, Date.now() - ts);
+    var min = Math.round(diff / 60000);
+    if (min < 1) return "just now";
+    if (min < 60) return min + "m";
+    var hr = Math.round(min / 60);
+    if (hr < 24) return hr + "h";
+    return Math.round(hr / 24) + "d";
+  }
+
+  function avatarHtml(name, category, avatarUrl) {
+    if (avatarUrl) return '<span class="portal-avatar portal-avatar-img"><img src="' + avatarUrl + '" alt=""></span>';
+    return '<span class="portal-avatar"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
+  }
+
   async function fetchPools() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, profiles(org_name, contact_name, category), pooling_participants(count)")
+      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url), pooling_participants(count)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     return res.data;
@@ -33,9 +54,19 @@
 
   function poolCardHtml(pool) {
     var joined = (pool.pooling_participants && pool.pooling_participants[0] && pool.pooling_participants[0].count) || 0;
+    var organizer = pool.profiles || {};
+    var name = organizer.org_name || organizer.contact_name || "Member";
+
     return (
-      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="post-card" style="display:block;">' +
-      '<p class="post-author-name">' + escapeHtml(pool.title) + "</p>" +
+      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="post-card is-coop" style="display:block;">' +
+      '<div class="post-type-flag-slot"><span class="post-type-flag post-type-flag--coop">The Co-Op</span></div>' +
+      '<div class="post-head">' +
+      avatarHtml(name, organizer.category, organizer.avatar_url) +
+      "<div>" +
+      '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
+      '<div class="post-meta-row"><span>' + relativeTime(new Date(pool.created_at).getTime()) + " ago</span></div>" +
+      "</div></div>" +
+      '<p class="post-author-name" style="margin-top:0.6rem;">' + escapeHtml(pool.title) + "</p>" +
       '<p class="settings-note">' +
       (pool.category === "materials" ? "Materials Co-Op" : "Service Co-Op") + " &mdash; " +
       joined + " of " + pool.target_group_size + " joined" +

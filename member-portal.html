@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=35">
+<link rel="stylesheet" href="styles.css?v=36">
 </head>
 <body class="portal-page">
 
@@ -97,14 +97,6 @@
     <div class="app-content app-content--rows">
       <main class="app-main">
         <form class="composer-card" id="composer-form">
-          <div class="form-field" style="margin-bottom:0.75rem;">
-            <label for="composer-post-type">Post type (required)</label>
-            <select id="composer-post-type" required>
-              <option value="">Select one&hellip;</option>
-              <option value="deal_board_rfp">Deal Board RFP</option>
-              <option value="sourcing">Sourcing</option>
-            </select>
-          </div>
           <div class="composer-top">
             <span class="portal-avatar" id="composer-avatar" aria-hidden="true"></span>
             <textarea class="composer-textarea" id="composer-textarea" placeholder="Describe what you're looking for&hellip;" required></textarea>
@@ -142,11 +134,6 @@
         <div class="app-main-toolbar">
           <span class="settings-note" id="exchange-result-count" style="margin:0;"></span>
           <div style="display:flex; gap:0.5rem;">
-            <select class="filter-select" id="exchange-type-select" aria-label="Filter by type">
-              <option value="all">All types</option>
-              <option value="deal_board_rfp">Deal Board RFP</option>
-              <option value="sourcing">Sourcing</option>
-            </select>
             <select class="filter-select" id="exchange-sort-select" aria-label="Sort posts">
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -161,7 +148,7 @@
         <div class="app-context-section app-context-section--card app-context-section--exchange">
           <p class="app-context-kicker">About</p>
           <h3>The Exchange</h3>
-          <p>Post a sourcing need or an open deal, and respond to other members' listings — the Deal Board and Sourcing RFPs, together in one place.</p>
+          <p>Post a sourcing need or an open deal, and respond to other members' listings — everything in one place.</p>
         </div>
         <div class="app-context-section app-context-section--card app-context-section--exchange">
           <p class="app-context-kicker">Recent listings</p>
@@ -180,6 +167,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=4"></script>
 <script src="shell.js?v=3"></script>
-<script src="portal.js?v=9"></script>
+<script src="portal.js?v=10"></script>
 </body>
 </html>

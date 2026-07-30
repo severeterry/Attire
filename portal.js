@@ -4,7 +4,7 @@
   var sb = window.supabaseClient;
   var profile = null;
   var dealPosts = [];
-  var filterState = { type: "all", sort: "newest" };
+  var filterState = { sort: "newest" };
 
   function initials(name) {
     var parts = name.trim().split(/\s+/);
@@ -52,12 +52,6 @@
 
   // ---- The Exchange (Supabase-backed) ----
 
-  function typeBadgeHtml(postType) {
-    if (postType === "deal_board_rfp")
-      return '<span class="post-type-flag post-type-flag--deal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v14M7 17l-4-4M7 17l4-4M17 21V7M17 7l4 4M17 7l-4 4"/></svg>Deal Board RFP</span>';
-    return '<span class="post-type-flag post-type-flag--sourcing"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Sourcing</span>';
-  }
-
   async function fetchDealPosts() {
     var res = await sb
       .from("rfp_posts")
@@ -77,8 +71,8 @@
     var authorLink = post.author_id === profile.id ? "profile.html" : "profile.html?id=" + encodeURIComponent(post.author_id);
 
     return (
-      '<article class="post-card is-' + (post.post_type === "deal_board_rfp" ? "deal" : "sourcing") + '" data-id="' + post.id + '">' +
-      '<div class="post-type-flag-slot">' + typeBadgeHtml(post.post_type) + "</div>" +
+      '<article class="post-card is-exchange" data-id="' + post.id + '">' +
+      '<div class="post-type-flag-slot"><span class="post-type-flag post-type-flag--exchange">The Exchange</span></div>' +
       '<div class="post-head">' +
       '<a href="' + authorLink + '">' + authorAvatarHtml(authorName, author.category) + "</a>" +
       "<div>" +
@@ -98,9 +92,6 @@
 
   function visiblePosts() {
     var posts = dealPosts.slice();
-    if (filterState.type !== "all") {
-      posts = posts.filter(function (p) { return p.post_type === filterState.type; });
-    }
     var searchEl = document.getElementById("feed-search");
     var query = (searchEl && searchEl.value || "").trim().toLowerCase();
     if (query) {
@@ -213,13 +204,7 @@
 
     composerForm.addEventListener("submit", function (e) {
       e.preventDefault();
-      var postType = document.getElementById("composer-post-type").value;
       var body = document.getElementById("composer-textarea").value.trim();
-      if (!postType) {
-        composerError.textContent = "Choose whether this is a Deal Board RFP or a Sourcing post.";
-        composerError.hidden = false;
-        return;
-      }
       if (!body) return;
       composerError.hidden = true;
 
@@ -228,7 +213,7 @@
 
       sb.from("rfp_posts").insert({
         author_id: profile.id,
-        post_type: postType,
+        post_type: "sourcing",
         category: document.getElementById("composer-category").value.trim() || null,
         scope: document.getElementById("composer-scope").value.trim() || null,
         budget_range: document.getElementById("composer-budget").value.trim() || null,
@@ -251,11 +236,6 @@
     });
 
     document.getElementById("feed-search").addEventListener("input", renderFeed);
-
-    document.getElementById("exchange-type-select").addEventListener("change", function (e) {
-      filterState.type = e.target.value;
-      renderFeed();
-    });
 
     document.getElementById("exchange-sort-select").addEventListener("change", function (e) {
       filterState.sort = e.target.value;

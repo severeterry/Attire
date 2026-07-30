@@ -29,12 +29,6 @@
   --cat-retail-bg:       #E6DCE0;
   --cat-retail-text:     #5C4152;
 
-  /* Post-type flags — two hues not used anywhere else in the palette */
-  --flag-deal-bg:      #DCE8E8;
-  --flag-deal-text:    #2C5A5C;
-  --flag-sourcing-bg:  #E6E2EE;
-  --flag-sourcing-text:#4A3F6B;
-
   /* Neutrals */
   --color-cream:        #EDE7DA;
   --color-white:        #FBF9F3;
@@ -1321,17 +1315,13 @@ body:has(.app-shell) { overflow: hidden; }
   border-radius: 3px; border: 1.5px solid transparent;
 }
 .post-type-flag svg { flex-shrink: 0; }
-.post-type-flag--deal     { border-color: var(--flag-deal-text);     color: var(--flag-deal-text);     background: var(--flag-deal-bg); }
-.post-type-flag--sourcing { border-color: var(--flag-sourcing-text); color: var(--flag-sourcing-text); background: var(--flag-sourcing-bg); }
-/* Feed aggregation badges — reuse the brand (Exchange) and circularity-green
-   (Co-Op) tokens already established elsewhere, so these read as "part of
-   the same system" rather than a third new color family. */
+/* Reuse the brand (Exchange) and circularity-green (Co-Op) tokens already
+   established elsewhere, so these read as "part of the same system" rather
+   than a third new color family. */
 .post-type-flag--exchange { border-color: var(--color-brand-dark);   color: var(--color-brand-dark);   background: var(--color-brand-tint); }
 .post-type-flag--coop     { border-color: var(--cat-circularity-text); color: var(--cat-circularity-text); background: var(--cat-circularity-bg); }
 .post-type-flag-slot { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1; }
 .post-card { position: relative; background: #fff; border-radius: var(--radius-md); border: 1px solid var(--color-border); padding: var(--space-3); }
-.post-card.is-deal { border-left: 3px solid var(--flag-deal-text); }
-.post-card.is-sourcing { border-left: 3px solid var(--flag-sourcing-text); }
 .post-card.is-exchange { border-left: 3px solid var(--color-brand-dark); }
 .post-card.is-coop { border-left: 3px solid var(--cat-circularity-text); }
 .post-repost-flag { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600; color: var(--color-brand-dark); margin-bottom: 0.6rem; }

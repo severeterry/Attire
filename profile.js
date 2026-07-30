@@ -93,12 +93,11 @@
     }
     listEl.innerHTML = posts
       .map(function (post) {
-        var typeLabel = post.post_type === "deal_board_rfp" ? "Deal Board RFP" : "Sourcing";
         var details = [post.category, post.scope, post.budget_range, post.deadline].filter(Boolean).join(" &middot; ");
         return (
-          '<article class="post-card">' +
-          '<div class="post-meta-row"><span class="cat-badge">' + typeLabel + '</span>' +
-          "<span>&middot;</span><span>" + relativeTime(new Date(post.created_at).getTime()) + " ago</span></div>" +
+          '<article class="post-card is-exchange">' +
+          '<div class="post-type-flag-slot"><span class="post-type-flag post-type-flag--exchange">The Exchange</span></div>' +
+          '<div class="post-meta-row"><span>' + relativeTime(new Date(post.created_at).getTime()) + " ago</span></div>" +
           '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
           (details ? '<p class="settings-note">' + details + " &mdash; " + post.status + "</p>" : "") +
           "</article>"
