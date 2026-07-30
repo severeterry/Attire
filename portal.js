@@ -141,7 +141,9 @@
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
       '<p class="settings-note">' + (details || "No additional details") + " &mdash; " + post.status + "</p>" +
       '<div class="post-actions">' +
-      '<button type="button" class="btn btn-outline btn-sm" data-action="respond" data-id="' + post.id + '">Respond</button>' +
+      (isFreeTier()
+        ? '<span class="settings-note">Upgrade to a paid plan to respond.</span>'
+        : '<button type="button" class="btn btn-outline btn-sm" data-action="respond" data-id="' + post.id + '">Respond</button>') +
       "</div>" +
       "</article>"
     );
@@ -169,24 +171,15 @@
     var body = window.prompt("Write your response to this post:");
     if (!body || !body.trim()) return;
 
-    var postRes = await sb.from("rfp_posts").select("author_id").eq("id", postId).single();
-    if (postRes.error || !postRes.data) { window.alert("Couldn't find that post."); return; }
+    // Creating the thread + adding both participants + the first message all
+    // happens atomically server-side — a thread has no way to satisfy its own
+    // "am I a participant" read policy until a thread_participants row
+    // exists, so building it up via separate client-side inserts can never
+    // work for the creator reading their own just-created thread back.
+    var res = await sb.rpc("start_rfp_thread", { p_rfp_post_id: postId, p_initial_message: body.trim() });
+    if (res.error) { window.alert(res.error.message); return; }
 
-    var threadRes = await sb.from("threads").insert({ rfp_post_id: postId }).select("id").single();
-    if (threadRes.error) { window.alert(threadRes.error.message); return; }
-    var threadId = threadRes.data.id;
-
-    var participants = [{ thread_id: threadId, profile_id: profile.id }];
-    if (postRes.data.author_id !== profile.id) {
-      participants.push({ thread_id: threadId, profile_id: postRes.data.author_id });
-    }
-    var partRes = await sb.from("thread_participants").insert(participants);
-    if (partRes.error) { window.alert(partRes.error.message); return; }
-
-    var msgRes = await sb.from("messages").insert({ thread_id: threadId, sender_id: profile.id, body: body.trim() });
-    if (msgRes.error) { window.alert(msgRes.error.message); return; }
-
-    window.location.href = "thread.html?id=" + encodeURIComponent(threadId);
+    window.location.href = "thread.html?id=" + encodeURIComponent(res.data);
   }
 
   // ---- General DM thread list / chat view (localStorage, unchanged) ----
@@ -324,11 +317,9 @@
       if (composerLocked) composerLocked.hidden = true;
     }
 
-    document.querySelectorAll('.app-sidebar-link[data-filter="deal"], .app-sidebar-link[data-filter="sourcing"]').forEach(function (btn) {
-      btn.disabled = isFree;
-      btn.classList.toggle("is-locked", isFree);
-      btn.title = isFree ? "Available on paid plans" : "";
-    });
+    // Free tier can browse the Deal Board/Sourcing filters same as anyone —
+    // only posting (composer, above) and responding (per-post, in
+    // dealPostHtml) are paid-plan-only.
   }
 
   function isFreeTier() {
