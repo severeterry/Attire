@@ -189,14 +189,5 @@
       link.classList.toggle("is-active", link.dataset.view === currentView);
     });
 
-    // Free-tier gates on sidebar deal/sourcing links
-    var isFree = (profile.tier || "individual") === "free";
-    document.querySelectorAll('.app-sidebar-link[data-view="deal"], .app-sidebar-link[data-view="sourcing"]').forEach(function (link) {
-      if (isFree) {
-        link.setAttribute("aria-disabled", "true");
-        link.classList.add("is-locked");
-        link.title = "Available on paid plans";
-      }
-    });
   });
 })();

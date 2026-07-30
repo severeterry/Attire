@@ -419,19 +419,19 @@
     });
     document.getElementById("cancel-confirm-yes").addEventListener("click", async function () {
       var billing = profile.billing;
-      var patch = { tier: "free", billing: null };
-      if (billing && billing.termMonths > 1) {
-        var modeInput = document.querySelector('input[name="cancel-refund-mode"]:checked');
-        var mode = modeInput ? modeInput.value : "refund";
-        if (mode === "credit") {
-          profile.accountCredit = (profile.accountCredit || 0) + billing.totalDue;
-          patch.account_credit = profile.accountCredit;
-        }
-        // "refund" mode: the prepaid balance goes back to the original payment method — nothing to track locally.
+      var modeInput = document.querySelector('input[name="cancel-refund-mode"]:checked');
+      var creditMode = billing && billing.termMonths > 1 && modeInput && modeInput.value === "credit";
+      // "refund" mode: the prepaid balance goes back to the original payment method — nothing to track locally.
+
+      var res = await sb.rpc("cancel_membership", { p_credit_mode: !!creditMode });
+      if (res.error) {
+        window.alert(res.error.message);
+        return;
       }
+
+      if (creditMode) profile.accountCredit = (profile.accountCredit || 0) + billing.totalDue;
       profile.tier = "free";
       profile.billing = null;
-      await window.AttireAuth.updateProfileFields(profile.id, patch);
       document.getElementById("cancel-confirm").hidden = true;
       renderPlanManagement();
     });
@@ -465,8 +465,14 @@
       submitBtn.disabled = true;
       submitBtn.textContent = "Processing…";
       setTimeout(function () {
-        profile.tier = chosen;
-        window.AttireAuth.updateProfileFields(profile.id, { tier: chosen }).then(function () {
+        sb.rpc("change_membership_tier", { p_new_tier: chosen, p_billing: profile.billing || null }).then(function (res) {
+          if (res.error) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Confirm & Upgrade";
+            window.alert(res.error.message);
+            return;
+          }
+          profile.tier = chosen;
           paymentForm.hidden = true;
           document.getElementById("modal-plan-choice-row").hidden = true;
           paymentSuccess.hidden = false;
