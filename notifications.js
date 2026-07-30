@@ -13,12 +13,12 @@
   var NOTIFICATION_META = {
     thread_expiring_soon: function (p) { return { label: "A conversation is about to expire from inactivity", href: "thread.html?id=" + p.thread_id }; },
     intro_request_reminder: function () { return { label: "You have a pending introduction request waiting on you", href: "intros.html" }; },
-    new_rfp_match: function () { return { label: "A new post matching your category was posted to the Deal Board", href: "member-portal.html?view=deal" }; },
-    rfp_cap_warning: function (p) { return { label: "You have " + p.posts_remaining + " Deal Board posts left this month", href: "member-portal.html?view=deal" }; },
-    pool_new_participant: function (p) { return { label: "Someone joined a pool you organized", href: "pooling.html?id=" + p.pooling_thread_id }; },
-    pool_ready: function (p) { return { label: "Your pool reached its minimum — the group chat is ready", href: "thread.html?id=" + p.thread_id }; },
-    pool_closing_soon: function (p) { return { label: "A pool you joined is closing soon", href: "pooling.html?id=" + p.pooling_thread_id }; },
-    weekly_digest: function () { return { label: "Your weekly Deal Board digest is ready", href: "member-portal.html?view=deal" }; },
+    new_rfp_match: function () { return { label: "A new post matching your category was posted to The Exchange", href: "member-portal.html?view=deal" }; },
+    rfp_cap_warning: function (p) { return { label: "You have " + p.posts_remaining + " Exchange posts left this month", href: "member-portal.html?view=deal" }; },
+    pool_new_participant: function (p) { return { label: "Someone joined a Co-Op you organized", href: "pooling.html?id=" + p.pooling_thread_id }; },
+    pool_ready: function (p) { return { label: "Your Co-Op reached its minimum — the group chat is ready", href: "thread.html?id=" + p.thread_id }; },
+    pool_closing_soon: function (p) { return { label: "A Co-Op you joined is closing soon", href: "pooling.html?id=" + p.pooling_thread_id }; },
+    weekly_digest: function () { return { label: "Your weekly Exchange digest is ready", href: "member-portal.html?view=deal" }; },
   };
 
   async function loadNotifications() {

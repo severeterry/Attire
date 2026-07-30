@@ -73,7 +73,7 @@
     }
   }
 
-  // ---- Deal Board posts tab (Supabase-backed) ----
+  // ---- The Exchange posts tab (Supabase-backed) ----
 
   async function fetchPostsBy(authorId) {
     var res = await sb
@@ -88,7 +88,7 @@
   function renderPostsTab(posts) {
     var listEl = document.getElementById("profile-posts-list");
     if (!posts.length) {
-      listEl.innerHTML = '<div class="empty-state"><h3>No posts yet</h3><p>Deal Board RFPs and sourcing posts will show up here.</p></div>';
+      listEl.innerHTML = '<div class="empty-state"><h3>No posts yet</h3><p>Your Exchange listings will show up here.</p></div>';
       return;
     }
     listEl.innerHTML = posts
@@ -193,7 +193,7 @@
       confirmCopy.textContent = hasPrepay
         ? "Cancel your subscription? You've prepaid $" + billing.totalDue + " for " + billing.termMonths +
           " months at $" + billing.monthlyRate + "/mo. Choose how you'd like to handle the unused balance below."
-        : "Cancel your subscription? You'll lose deal board access, direct messaging, and event invitations at the end of this billing period, and drop to the Free Plan.";
+        : "Cancel your subscription? You'll lose Exchange access, direct messaging, and event invitations at the end of this billing period, and drop to the Free Plan.";
     }
 
     if (tier === "organization") {

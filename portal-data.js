@@ -1,7 +1,7 @@
 /**
  * Seed content for the member portal demo (member-portal.html).
  * This is illustrative sample data for prototyping the DM chat UI —
- * not real conversations with the named organizations. Deal Board posts
+ * not real conversations with the named organizations. Exchange posts
  * live in Supabase now, not here.
  */
 
@@ -14,7 +14,7 @@ var PORTAL_SEED_THREADS = [
     category: "circularity",
     unread: true,
     messages: [
-      { from: "them", text: "Hey! Saw your deal board post about deadstock wool — we just got a big drop in.", ageMs: 1000 * 60 * 55 },
+      { from: "them", text: "Hey! Saw your Exchange post about deadstock wool — we just got a big drop in.", ageMs: 1000 * 60 * 55 },
       { from: "me", text: "Perfect timing, can I swing by this week to take a look?", ageMs: 1000 * 60 * 50 },
       { from: "them", text: "Thursday works, we'll set a bin aside for you.", ageMs: 1000 * 60 * 40 },
     ],

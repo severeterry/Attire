@@ -7,7 +7,7 @@
   "use strict";
 
   // Must match portal.js's DM_STORAGE_KEY — both read/write the same
-  // general-DM-threads blob (Deal Board posts now live in Supabase instead).
+  // general-DM-threads blob (Exchange posts now live in Supabase instead).
   var PORTAL_STORAGE_KEY = "attire-portal-dm-v1";
 
   function escapeHtml(str) {

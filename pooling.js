@@ -22,7 +22,7 @@
       return;
     }
     if (!res.data.length) {
-      listEl.innerHTML = '<p class="settings-note">No pools yet — start one above.</p>';
+      listEl.innerHTML = '<p class="settings-note">No Co-Ops yet — start one above.</p>';
       return;
     }
 
@@ -32,7 +32,7 @@
         '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="post-card" style="display:block;">' +
         '<p class="post-author-name">' + escapeHtml(pool.title) + "</p>" +
         '<p class="settings-note">' +
-        (pool.category === "materials" ? "Materials / production" : "Service / cost pooling") + " &mdash; " +
+        (pool.category === "materials" ? "Materials Co-Op" : "Service Co-Op") + " &mdash; " +
         joined + " of " + pool.target_group_size + " joined" +
         (pool.participant_cap ? " (cap " + pool.participant_cap + ")" : "") + " &mdash; " + pool.status +
         "</p></a>"
@@ -108,7 +108,7 @@
       .single();
 
     if (poolRes.error || !poolRes.data) {
-      contentEl.innerHTML = '<p class="settings-note">This pool doesn\'t exist, or you don\'t have access to it.</p>';
+      contentEl.innerHTML = '<p class="settings-note">This Co-Op doesn\'t exist, or you don\'t have access to it.</p>';
       return;
     }
     var pool = poolRes.data;
@@ -128,7 +128,7 @@
 
     var html =
       '<h1 class="section-title" style="font-size:1.6rem;">' + escapeHtml(pool.title) + "</h1>" +
-      '<p class="settings-note">' + (pool.category === "materials" ? "Materials / production pooling" : "Service / cost pooling") + "</p>" +
+      '<p class="settings-note">' + (pool.category === "materials" ? "Materials Co-Op" : "Service Co-Op") + "</p>" +
       '<p class="section-lede">' + escapeHtml(pool.description) + "</p>" +
       '<div class="form-card">' +
       (detailsLine ? '<p class="settings-note">' + detailsLine + "</p>" : "") +
@@ -144,20 +144,20 @@
       "</ul>";
 
     if (pool.status === "open" && !alreadyJoined) {
-      html += '<button type="button" class="btn btn-primary btn-sm" id="pool-join-btn">Join this pool</button>' +
+      html += '<button type="button" class="btn btn-primary btn-sm" id="pool-join-btn">Join this Co-Op</button>' +
         '<p class="login-error" id="pool-join-error" hidden></p>';
     } else if (pool.status === "open" && alreadyJoined) {
-      html += '<p class="settings-note">You&rsquo;re in this pool.</p>';
+      html += '<p class="settings-note">You&rsquo;re in this Co-Op.</p>';
     }
     if (pool.status === "open" && isOrganizer) {
-      html += '<div style="margin-top:0.5rem;"><button type="button" class="btn btn-outline btn-sm" id="pool-close-btn">Close pool now</button>' +
+      html += '<div style="margin-top:0.5rem;"><button type="button" class="btn btn-outline btn-sm" id="pool-close-btn">Close Co-Op now</button>' +
         '<p class="login-error" id="pool-close-error" hidden></p></div>';
     }
     if (pool.status === "closed" && pool.chat_thread_id) {
       html += '<a href="thread.html?id=' + encodeURIComponent(pool.chat_thread_id) + '" class="btn btn-primary btn-sm" style="margin-top:0.75rem;">Go to group chat</a>';
     }
     if (pool.status === "cancelled") {
-      html += '<p class="settings-note">This pool didn&rsquo;t reach the minimum of 2 participants and was cancelled.</p>';
+      html += '<p class="settings-note">This Co-Op didn&rsquo;t reach the minimum of 2 participants and was cancelled.</p>';
     }
     html += "</div>";
 
@@ -214,8 +214,8 @@
     if (profile.tier === "free") {
       document.getElementById("pooling-list-view").innerHTML =
         '<div class="checkout-wrap" style="text-align:center;">' +
-        '<h1 class="section-title">Group Buying Power</h1>' +
-        '<p class="section-lede">Pooling is a paid-member feature. Upgrade to Individual/Affiliate or Organization to join or start a pool.</p>' +
+        '<h1 class="section-title">The Co-Op</h1>' +
+        '<p class="section-lede">The Co-Op is a paid-member feature. Upgrade to Individual/Affiliate or Organization to join or start a Co-Op.</p>' +
         '<a href="upgrade.html" class="btn btn-primary btn-lg">Upgrade Plan</a></div>';
       return;
     }

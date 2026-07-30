@@ -4,7 +4,7 @@
   var sb = window.supabaseClient;
 
   // General 1:1 direct-message threads — a pre-existing feature, left on
-  // localStorage untouched. Deal Board posts/responses (below) are the only
+  // localStorage untouched. The Exchange posts/responses (below) are the only
   // part of this file backed by real Supabase data.
   var DM_STORAGE_KEY = "attire-portal-dm-v1";
 
@@ -103,7 +103,7 @@
     return map[cat] || cat;
   }
 
-  // ---- Deal Board (Supabase-backed) ----
+  // ---- The Exchange (Supabase-backed) ----
 
   function typeBadgeHtml(postType) {
     if (postType === "deal_board_rfp")
@@ -164,7 +164,7 @@
 
     feedEl.innerHTML = posts.length
       ? posts.map(dealPostHtml).join("")
-      : '<div class="empty-state"><h3>Nothing here yet</h3><p>Deal Board RFPs and sourcing posts from members will show up in this view.</p></div>';
+      : '<div class="empty-state"><h3>Nothing here yet</h3><p>Exchange listings from members will show up in this view.</p></div>';
   }
 
   async function respondToPost(postId) {
@@ -317,7 +317,7 @@
       if (composerLocked) composerLocked.hidden = true;
     }
 
-    // Free tier can browse the Deal Board/Sourcing filters same as anyone —
+    // Free tier can browse The Exchange's filters same as anyone —
     // only posting (composer, above) and responding (per-post, in
     // dealPostHtml) are paid-plan-only.
   }
@@ -353,15 +353,6 @@
       activeThreadId = threadParam;
       var openedThread = dmState.threads.find(function (t) { return t.id === threadParam; });
       if (openedThread) { openedThread.unread = false; saveDmState(dmState); }
-    }
-
-    var viewParam = params.get("view");
-    if (viewParam === "deal" || viewParam === "sourcing") {
-      var targetBtn = document.querySelector('.app-sidebar-link[data-filter="' + viewParam + '"]');
-      if (targetBtn && !targetBtn.disabled) {
-        activeFilter = viewParam;
-        document.querySelectorAll(".app-sidebar-link[data-filter]").forEach(function (b) { b.classList.toggle("is-active", b === targetBtn); });
-      }
     }
 
     var composerForm = document.getElementById("composer-form");
