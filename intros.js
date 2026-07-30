@@ -10,6 +10,88 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  function labelForCategory(cat) {
+    var map = {
+      materials: "Materials & Making",
+      circularity: "Circularity & Disposal",
+      strategy: "Strategy & Expertise",
+      advocacy: "Advocacy & Community",
+      retail: "Retail & Creators",
+    };
+    return map[cat] || "No category set";
+  }
+
+  // ---- Browsable list of members open to introductions ----
+
+  var introMembers = [];
+  var introFilterState = { search: "", category: "all", borough: "all" };
+
+  async function fetchIntroMembers() {
+    var res = await sb
+      .from("profiles")
+      .select("id, org_name, contact_name, category, borough")
+      .eq("intro_opt_in", true)
+      .neq("tier", "free")
+      .neq("id", profile.id)
+      .order("org_name", { ascending: true });
+    if (res.error) { console.error(res.error); return []; }
+    return res.data;
+  }
+
+  function memberMatchesFilters(m) {
+    if (introFilterState.category !== "all" && m.category !== introFilterState.category) return false;
+    if (introFilterState.borough !== "all" && m.borough !== introFilterState.borough) return false;
+    if (introFilterState.search) {
+      var name = (m.org_name || m.contact_name || "").toLowerCase();
+      if (name.indexOf(introFilterState.search.toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+
+  function memberCardHtml(m) {
+    var name = m.org_name || m.contact_name || "Member";
+    var meta = [m.category ? labelForCategory(m.category) : null, m.borough].filter(Boolean).join(" &middot; ");
+    return (
+      '<a href="profile.html?id=' + encodeURIComponent(m.id) + '" class="post-card" style="display:block;">' +
+      '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
+      (meta ? '<p class="settings-note">' + meta + "</p>" : "") +
+      "</a>"
+    );
+  }
+
+  function renderIntroMembers() {
+    var grid = document.getElementById("intro-members-grid");
+    var empty = document.getElementById("intro-members-empty");
+    var filtered = introMembers.filter(memberMatchesFilters);
+    grid.innerHTML = filtered.map(memberCardHtml).join("");
+    grid.hidden = filtered.length === 0;
+    empty.hidden = filtered.length !== 0;
+  }
+
+  function setupIntroMemberFilters() {
+    var searchInput = document.getElementById("intro-search-input");
+    var boroughSelect = document.getElementById("intro-borough-select");
+    var pillRow = document.getElementById("intro-category-pills");
+
+    searchInput.addEventListener("input", function () {
+      introFilterState.search = searchInput.value.trim();
+      renderIntroMembers();
+    });
+    boroughSelect.addEventListener("change", function () {
+      introFilterState.borough = boroughSelect.value;
+      renderIntroMembers();
+    });
+    pillRow.addEventListener("click", function (e) {
+      var pill = e.target.closest(".cat-pill");
+      if (!pill) return;
+      introFilterState.category = pill.dataset.cat;
+      pillRow.querySelectorAll(".cat-pill").forEach(function (p) {
+        p.setAttribute("aria-pressed", String(p === pill));
+      });
+      renderIntroMembers();
+    });
+  }
+
   async function sharedThreadCount(aId, bId) {
     var aRes = await sb.from("thread_participants").select("thread_id").eq("profile_id", aId);
     var bRes = await sb.from("thread_participants").select("thread_id").eq("profile_id", bId);
@@ -129,6 +211,10 @@
       window.location.href = "index.html";
       return;
     }
+
+    setupIntroMemberFilters();
+    introMembers = await fetchIntroMembers();
+    renderIntroMembers();
 
     await loadIncoming();
     await loadResolved();
