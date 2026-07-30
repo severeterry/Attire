@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=31">
+<link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body>
 
@@ -71,7 +71,7 @@
         </div>
       </div>
 
-      <div class="swatch-fan reveal" aria-hidden="true">
+      <div class="swatch-fan reveal" data-parallax="0.05" aria-hidden="true">
         <div class="swatch-card" data-cat="strategy" style="--r:-11deg; --x:-64px; --y:6px; z-index:1;">
           <span class="swatch-code">LOT S&ndash;03</span>
           <span class="swatch-name">Strategy &amp;<br>Expertise</span>
@@ -121,7 +121,7 @@
 
   <!-- NYC IMMERSIVE -->
   <section class="nyc-immersive fade-section" id="how-it-works">
-    <div class="nyc-immersive-bg" aria-hidden="true">
+    <div class="nyc-immersive-bg" data-parallax="0.07" aria-hidden="true">
       <svg viewBox="0 0 1440 480" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <radialGradient id="nycGlow1" cx="50%" cy="50%" r="50%">
@@ -442,28 +442,28 @@
         <a href="directory.html" class="btn btn-light btn-lg btn-centered-self">Browse the Directory</a>
       </div>
 
-      <div class="category-grid category-grid--stacked reveal">
-        <a class="category-card" href="directory.html?category=materials">
+      <div class="category-grid category-grid--stacked">
+        <a class="category-card reveal" href="directory.html?category=materials">
           <span class="category-dot" data-cat="materials"></span>
           <h3>Materials &amp; Making</h3>
           <p>Fabric sourcing, manufacturing, deadstock &amp; resale</p>
         </a>
-        <a class="category-card" href="directory.html?category=circularity">
+        <a class="category-card reveal" href="directory.html?category=circularity">
           <span class="category-dot" data-cat="circularity"></span>
           <h3>Circularity &amp; Disposal</h3>
           <p>Recycling &amp; textile waste diversion</p>
         </a>
-        <a class="category-card" href="directory.html?category=strategy">
+        <a class="category-card reveal" href="directory.html?category=strategy">
           <span class="category-dot" data-cat="strategy"></span>
           <h3>Strategy &amp; Expertise</h3>
           <p>Supply chain consultants &amp; production tech</p>
         </a>
-        <a class="category-card" href="directory.html?category=advocacy">
+        <a class="category-card reveal" href="directory.html?category=advocacy">
           <span class="category-dot" data-cat="advocacy"></span>
           <h3>Advocacy &amp; Community</h3>
           <p>NGOs, nonprofits &amp; institutions</p>
         </a>
-        <a class="category-card" href="directory.html?category=retail">
+        <a class="category-card reveal" href="directory.html?category=retail">
           <span class="category-dot" data-cat="retail"></span>
           <h3>Retail &amp; Creators</h3>
           <p>Slow fashion designers, stores &amp; marketplaces</p>
@@ -631,6 +631,8 @@
 
 <script src="data.js?v=1"></script>
 <script src="script.js?v=2"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="scroll.js?v=1"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=4"></script>
