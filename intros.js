@@ -29,13 +29,24 @@
   async function fetchIntroMembers() {
     var res = await sb
       .from("profiles")
-      .select("id, org_name, contact_name, category, borough")
+      .select("id, org_name, contact_name, category, borough, bio, avatar_url, practices")
       .eq("intro_opt_in", true)
       .neq("tier", "free")
       .neq("id", profile.id)
       .order("org_name", { ascending: true });
     if (res.error) { console.error(res.error); return []; }
     return res.data;
+  }
+
+  function initials(name) {
+    var parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function avatarHtml(name, category, avatarUrl) {
+    if (avatarUrl) return '<span class="portal-avatar portal-avatar-lg portal-avatar-img"><img src="' + avatarUrl + '" alt=""></span>';
+    return '<span class="portal-avatar portal-avatar-lg"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
   }
 
   function memberMatchesFilters(m) {
@@ -50,11 +61,23 @@
 
   function memberCardHtml(m) {
     var name = m.org_name || m.contact_name || "Member";
-    var meta = [m.category ? labelForCategory(m.category) : null, m.borough].filter(Boolean).join(" &middot; ");
+    var practices = (m.practices || []).slice(0, 4);
     return (
       '<a href="profile.html?id=' + encodeURIComponent(m.id) + '" class="post-card" style="display:block;">' +
+      '<div class="post-head">' +
+      avatarHtml(name, m.category, m.avatar_url) +
+      "<div>" +
       '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
-      (meta ? '<p class="settings-note">' + meta + "</p>" : "") +
+      '<div class="post-meta-row">' +
+      (m.category ? '<span class="cat-badge" data-cat="' + m.category + '">' + escapeHtml(labelForCategory(m.category)) + "</span>" : "") +
+      (m.borough ? "<span>" + escapeHtml(m.borough) + "</span>" : "") +
+      "</div></div></div>" +
+      '<p class="post-body">' + escapeHtml(m.bio || "No bio yet.") + "</p>" +
+      (practices.length
+        ? '<div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem;">' +
+          practices.map(function (p) { return '<span class="cat-pill" style="cursor:default;">' + escapeHtml(p) + "</span>"; }).join("") +
+          "</div>"
+        : "") +
       "</a>"
     );
   }
@@ -71,7 +94,7 @@
   function setupIntroMemberFilters() {
     var searchInput = document.getElementById("intro-search-input");
     var boroughSelect = document.getElementById("intro-borough-select");
-    var sidebarFilters = document.getElementById("sidebar-category-filters");
+    var categorySelect = document.getElementById("intro-category-select");
 
     searchInput.addEventListener("input", function () {
       introFilterState.search = searchInput.value.trim();
@@ -81,13 +104,8 @@
       introFilterState.borough = boroughSelect.value;
       renderIntroMembers();
     });
-    sidebarFilters.addEventListener("click", function (e) {
-      var link = e.target.closest(".app-sidebar-category-link");
-      if (!link) return;
-      introFilterState.category = link.dataset.cat;
-      sidebarFilters.querySelectorAll(".app-sidebar-category-link").forEach(function (l) {
-        l.classList.toggle("is-active", l === link);
-      });
+    categorySelect.addEventListener("change", function () {
+      introFilterState.category = categorySelect.value;
       renderIntroMembers();
     });
   }

@@ -4,7 +4,7 @@
   var sb = window.supabaseClient;
   var profile = null;
   var pools = [];
-  var filterState = { category: "all", sort: "newest" };
+  var filterState = { sort: "newest" };
 
   function escapeHtml(str) {
     return String(str)
@@ -23,9 +23,6 @@
 
   function visiblePools() {
     var list = pools.slice();
-    if (filterState.category !== "all") {
-      list = list.filter(function (p) { return p.profiles && p.profiles.category === filterState.category; });
-    }
     if (filterState.sort === "oldest") {
       list.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
     } else {
@@ -269,14 +266,5 @@
       renderPoolList();
     });
 
-    document.getElementById("sidebar-category-filters").addEventListener("click", function (e) {
-      var link = e.target.closest(".app-sidebar-category-link");
-      if (!link) return;
-      filterState.category = link.dataset.cat;
-      document.querySelectorAll("#sidebar-category-filters .app-sidebar-category-link").forEach(function (l) {
-        l.classList.toggle("is-active", l === link);
-      });
-      renderPoolList();
-    });
   });
 })();

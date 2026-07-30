@@ -1,12 +1,21 @@
+/**
+ * Feed aggregates three real Supabase tables into one chronological list:
+ * regular posts (own table, own like/comment engagement), Exchange listings
+ * (rfp_posts), and Co-Op pools (pooling_threads). Only regular posts carry
+ * the vote-column like/comment UI — Exchange/Co-Op items are read-only
+ * previews here, tagged with a type badge, linking through to their real
+ * page for the actual Respond/Join action.
+ */
 (function () {
   "use strict";
 
   var sb = window.supabaseClient;
   var profile = null;
   var posts = [];
+  var feedItems = [];
   var likedPostIds = new Set();
   var openComments = new Set();
-  var filterState = { category: "all", sort: "newest" };
+  var filterState = { sort: "newest" };
 
   function escapeHtml(str) {
     return String(str)
@@ -44,6 +53,26 @@
     return res.data;
   }
 
+  async function fetchExchangeItems() {
+    var res = await sb
+      .from("rfp_posts")
+      .select("id, body, created_at, author_id, profiles(org_name, contact_name, category, avatar_url)")
+      .order("created_at", { ascending: false })
+      .limit(15);
+    if (res.error) { console.error(res.error); return []; }
+    return res.data;
+  }
+
+  async function fetchCoopItems() {
+    var res = await sb
+      .from("pooling_threads")
+      .select("id, title, description, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url)")
+      .order("created_at", { ascending: false })
+      .limit(15);
+    if (res.error) { console.error(res.error); return []; }
+    return res.data;
+  }
+
   async function fetchMyLikes() {
     var res = await sb.from("post_likes").select("post_id").eq("profile_id", profile.id);
     likedPostIds = new Set((res.data || []).map(function (r) { return r.post_id; }));
@@ -74,25 +103,81 @@
     return (post.post_comments && post.post_comments[0] && post.post_comments[0].count) || 0;
   }
 
-  function visiblePosts() {
-    var list = posts.slice();
-    if (filterState.category !== "all") {
-      list = list.filter(function (p) { return p.profiles && p.profiles.category === filterState.category; });
-    }
+  async function loadFeedItems() {
+    var results = await Promise.all([fetchPosts(), fetchExchangeItems(), fetchCoopItems()]);
+    posts = results[0];
+    var exchangeItems = results[1];
+    var coopItems = results[2];
+
+    var normalizedPosts = posts.map(function (p) {
+      return { source: "post", id: p.id, raw: p, authorId: p.author_id, profiles: p.profiles, body: p.body, createdAt: p.created_at };
+    });
+    var normalizedExchange = exchangeItems.map(function (p) {
+      return { source: "exchange", id: p.id, raw: p, authorId: p.author_id, profiles: p.profiles, body: p.body, createdAt: p.created_at };
+    });
+    var normalizedCoop = coopItems.map(function (p) {
+      return { source: "coop", id: p.id, raw: p, authorId: p.organizer_id, profiles: p.profiles, body: p.title + " — " + p.description, createdAt: p.created_at };
+    });
+
+    feedItems = normalizedPosts.concat(normalizedExchange, normalizedCoop);
+  }
+
+  function visibleItems() {
+    var list = feedItems.slice();
     if (filterState.sort === "oldest") {
-      list.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+      list.sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); });
     } else if (filterState.sort === "most-liked") {
-      list.sort(function (a, b) { return likeCountOf(b) - likeCountOf(a); });
+      list.sort(function (a, b) {
+        var likesB = b.source === "post" ? likeCountOf(b.raw) : 0;
+        var likesA = a.source === "post" ? likeCountOf(a.raw) : 0;
+        return likesB - likesA;
+      });
     } else {
-      list.sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+      list.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
     }
     return list;
   }
 
-  function postCardHtml(post) {
-    var author = post.profiles || {};
+  function typeBadgeHtml(source) {
+    if (source === "exchange") return '<span class="post-type-flag post-type-flag--exchange">The Exchange</span>';
+    if (source === "coop") return '<span class="post-type-flag post-type-flag--coop">The Co-Op</span>';
+    return "";
+  }
+
+  function linkHrefFor(item) {
+    if (item.source === "exchange") return "member-portal.html?view=deal";
+    if (item.source === "coop") return "pooling.html?id=" + encodeURIComponent(item.id);
+    return null;
+  }
+
+  function itemCardHtml(item) {
+    var author = item.profiles || {};
     var name = author.org_name || author.contact_name || "Member";
-    var authorLink = post.author_id === profile.id ? "profile.html" : "profile.html?id=" + encodeURIComponent(post.author_id);
+    var authorLink = item.authorId === profile.id ? "profile.html" : "profile.html?id=" + encodeURIComponent(item.authorId);
+    var badge = typeBadgeHtml(item.source);
+    var cardClass = "post-card" + (item.source === "exchange" ? " is-exchange" : item.source === "coop" ? " is-coop" : "");
+
+    if (item.source !== "post") {
+      // Exchange/Co-Op items surfaced in Feed are read-only previews — the
+      // real Respond/Join action lives on their own page, not duplicated here.
+      return (
+        '<article class="' + cardClass + '" data-id="' + item.id + '">' +
+        (badge ? '<div class="post-type-flag-slot">' + badge + "</div>" : "") +
+        '<div class="post-head">' +
+        '<a href="' + authorLink + '">' + avatarHtml(name, author.category, author.avatar_url) + "</a>" +
+        "<div>" +
+        '<a class="post-author-name" href="' + authorLink + '">' + escapeHtml(name) + "</a>" +
+        '<div class="post-meta-row"><span>' + relativeTime(new Date(item.createdAt).getTime()) + " ago</span></div>" +
+        "</div></div>" +
+        '<p class="post-body">' + escapeHtml(item.body) + "</p>" +
+        '<div class="post-actions">' +
+        '<a href="' + linkHrefFor(item) + '" class="btn btn-outline btn-sm">' + (item.source === "exchange" ? "View on The Exchange" : "View in The Co-Op") + "</a>" +
+        "</div>" +
+        "</article>"
+      );
+    }
+
+    var post = item.raw;
     var likeCount = likeCountOf(post);
     var commentCount = commentCountOf(post);
     var liked = likedPostIds.has(post.id);
@@ -131,9 +216,9 @@
 
   function renderFeed() {
     var listEl = document.getElementById("feed-list");
-    var visible = visiblePosts();
+    var visible = visibleItems();
     listEl.innerHTML = visible.length
-      ? visible.map(postCardHtml).join("")
+      ? visible.map(itemCardHtml).join("")
       : '<div class="empty-state"><h3>Nothing here yet</h3><p>Be the first to share an update with the network.</p></div>';
     openComments.forEach(function (postId) { loadComments(postId); });
 
@@ -144,15 +229,16 @@
   function renderRecent() {
     var recentEl = document.getElementById("feed-recent-list");
     if (!recentEl) return;
-    var recent = posts.slice(0, 5);
+    var recent = feedItems.slice().sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); }).slice(0, 5);
     recentEl.innerHTML = recent.length
-      ? recent.map(function (p) {
-          var author = p.profiles || {};
+      ? recent.map(function (item) {
+          var author = item.profiles || {};
           var name = author.org_name || author.contact_name || "Member";
-          var preview = p.body.length > 60 ? p.body.slice(0, 60) + "…" : p.body;
-          return '<a class="app-context-recent-item" href="#" data-scroll-to="' + p.id + '">' + escapeHtml(preview) + "<span>" + escapeHtml(name) + "</span></a>";
+          var preview = item.body.length > 60 ? item.body.slice(0, 60) + "…" : item.body;
+          var tag = item.source === "exchange" ? " · The Exchange" : item.source === "coop" ? " · The Co-Op" : "";
+          return '<a class="app-context-recent-item" href="#" data-scroll-to="' + item.id + '">' + escapeHtml(preview) + "<span>" + escapeHtml(name) + tag + "</span></a>";
         }).join("")
-      : '<p class="settings-note">No posts yet.</p>';
+      : '<p class="settings-note">No activity yet.</p>';
   }
 
   document.addEventListener("DOMContentLoaded", async function () {
@@ -174,7 +260,7 @@
     if (!profile.avatar && profile.category) composerAvatar.setAttribute("data-cat", profile.category);
 
     await fetchMyLikes();
-    posts = await fetchPosts();
+    await loadFeedItems();
     renderFeed();
     renderRecent();
 
@@ -198,22 +284,12 @@
           return;
         }
         composerTextarea.value = "";
-        fetchPosts().then(function (p) { posts = p; renderFeed(); renderRecent(); });
+        loadFeedItems().then(function () { renderFeed(); renderRecent(); });
       });
     });
 
     document.getElementById("feed-sort-select").addEventListener("change", function (e) {
       filterState.sort = e.target.value;
-      renderFeed();
-    });
-
-    document.getElementById("sidebar-category-filters").addEventListener("click", function (e) {
-      var link = e.target.closest(".app-sidebar-category-link");
-      if (!link) return;
-      filterState.category = link.dataset.cat;
-      document.querySelectorAll("#sidebar-category-filters .app-sidebar-category-link").forEach(function (l) {
-        l.classList.toggle("is-active", l === link);
-      });
       renderFeed();
     });
 
@@ -233,7 +309,7 @@
           if (res.error) return;
           if (alreadyLiked) likedPostIds.delete(postId);
           else likedPostIds.add(postId);
-          fetchPosts().then(function (p) { posts = p; renderFeed(); });
+          loadFeedItems().then(renderFeed);
         });
         return;
       }
@@ -259,7 +335,7 @@
       sb.from("post_comments").insert({ post_id: postId, author_id: profile.id, body: body }).then(function (res) {
         if (res.error) return;
         input.value = "";
-        fetchPosts().then(function (p) { posts = p; renderFeed(); });
+        loadFeedItems().then(renderFeed);
       });
     });
 

@@ -4,7 +4,7 @@
   var sb = window.supabaseClient;
   var profile = null;
   var dealPosts = [];
-  var filterState = { category: "all", type: "all", sort: "newest" };
+  var filterState = { type: "all", sort: "newest" };
 
   function initials(name) {
     var parts = name.trim().split(/\s+/);
@@ -98,9 +98,6 @@
 
   function visiblePosts() {
     var posts = dealPosts.slice();
-    if (filterState.category !== "all") {
-      posts = posts.filter(function (p) { return p.profiles && p.profiles.category === filterState.category; });
-    }
     if (filterState.type !== "all") {
       posts = posts.filter(function (p) { return p.post_type === filterState.type; });
     }
@@ -265,15 +262,6 @@
       renderFeed();
     });
 
-    document.getElementById("sidebar-category-filters").addEventListener("click", function (e) {
-      var link = e.target.closest(".app-sidebar-category-link");
-      if (!link) return;
-      filterState.category = link.dataset.cat;
-      document.querySelectorAll("#sidebar-category-filters .app-sidebar-category-link").forEach(function (l) {
-        l.classList.toggle("is-active", l === link);
-      });
-      renderFeed();
-    });
 
     var feedEl = document.getElementById("portal-feed-list");
     feedEl.addEventListener("click", function (e) {
