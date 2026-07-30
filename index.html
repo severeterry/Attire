@@ -499,6 +499,45 @@
     </div>
   </section>
 
+  <!-- LEAD CAPTURE -->
+  <section class="section section-tint section-sm fade-section" id="get-in-touch">
+    <div class="wrap">
+      <div class="split reveal">
+        <div class="split-copy">
+          <p class="section-kicker">Not ready to apply?</p>
+          <h2 class="section-title" style="font-size:1.8rem;">Leave your info, we'll follow up.</h2>
+          <p>
+            Tell us a bit about your organization and what you're looking for. No commitment —
+            a member of the Attire team will reach out directly.
+          </p>
+        </div>
+        <form class="form-card" id="lead-form" novalidate>
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="lead-name">Name</label>
+              <input type="text" id="lead-name" required>
+            </div>
+            <div class="form-field">
+              <label for="lead-email">Email</label>
+              <input type="email" id="lead-email" required>
+            </div>
+            <div class="form-field full">
+              <label for="lead-organization">Organization <span class="hint">(optional)</span></label>
+              <input type="text" id="lead-organization">
+            </div>
+            <div class="form-field full">
+              <label for="lead-message">Message <span class="hint">(optional)</span></label>
+              <textarea id="lead-message"></textarea>
+            </div>
+          </div>
+          <p class="login-error" id="lead-error" hidden></p>
+          <p class="settings-note" id="lead-success" hidden>Thanks — we'll be in touch soon.</p>
+          <button type="submit" class="btn btn-primary btn-block" id="lead-submit-btn">Send</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
   <!-- CTA -->
   <section class="section newsletter fade-section">
     <div class="wrap newsletter-inner reveal">
@@ -595,5 +634,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=4"></script>
+<script src="leads.js?v=1"></script>
 </body>
 </html>
