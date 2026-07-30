@@ -47,7 +47,7 @@
   async function fetchPosts() {
     var res = await sb
       .from("posts")
-      .select("id, body, created_at, author_id, profiles(org_name, contact_name, category, avatar_url), post_likes(count), post_comments(count)")
+      .select("id, body, created_at, author_id, profiles(org_name, contact_name, category, avatar_url, tier), post_likes(count), post_comments(count)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     return res.data;
@@ -56,7 +56,7 @@
   async function fetchExchangeItems() {
     var res = await sb
       .from("rfp_posts")
-      .select("id, body, created_at, author_id, profiles(org_name, contact_name, category, avatar_url)")
+      .select("id, body, created_at, author_id, profiles(org_name, contact_name, category, avatar_url, tier)")
       .order("created_at", { ascending: false })
       .limit(15);
     if (res.error) { console.error(res.error); return []; }
@@ -66,7 +66,7 @@
   async function fetchCoopItems() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, description, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url)")
+      .select("id, title, description, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url, tier)")
       .order("created_at", { ascending: false })
       .limit(15);
     if (res.error) { console.error(res.error); return []; }
@@ -122,15 +122,24 @@
     feedItems = normalizedPosts.concat(normalizedExchange, normalizedCoop);
   }
 
+  // "Most relevant" surfaces content from Organization ($18/mo) members
+  // first — they're the highest membership tier, so their posts, Exchange
+  // listings, and Co-Op pools get priority placement — then falls back to
+  // newest-first within each group.
+  function isOrgTierAuthor(item) {
+    return !!(item.profiles && item.profiles.tier === "organization");
+  }
+
   function visibleItems() {
     var list = feedItems.slice();
     if (filterState.sort === "oldest") {
       list.sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); });
-    } else if (filterState.sort === "most-liked") {
+    } else if (filterState.sort === "most-relevant") {
       list.sort(function (a, b) {
-        var likesB = b.source === "post" ? likeCountOf(b.raw) : 0;
-        var likesA = a.source === "post" ? likeCountOf(a.raw) : 0;
-        return likesB - likesA;
+        var orgA = isOrgTierAuthor(a) ? 1 : 0;
+        var orgB = isOrgTierAuthor(b) ? 1 : 0;
+        if (orgA !== orgB) return orgB - orgA;
+        return new Date(b.createdAt) - new Date(a.createdAt);
       });
     } else {
       list.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
