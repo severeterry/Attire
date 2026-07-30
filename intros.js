@@ -25,6 +25,21 @@
 
   var introMembers = [];
   var introFilterState = { search: "", category: "all", borough: "all" };
+  var myOutgoingRequests = {};
+
+  async function fetchMyOutgoingIntros() {
+    var res = await sb
+      .from("intro_requests")
+      .select("requestee_id, status")
+      .eq("requestor_id", profile.id)
+      .order("created_at", { ascending: false });
+    if (res.error) return;
+    myOutgoingRequests = {};
+    (res.data || []).forEach(function (r) {
+      // Ordered newest-first, so the first row seen per requestee is their latest status.
+      if (!(r.requestee_id in myOutgoingRequests)) myOutgoingRequests[r.requestee_id] = r.status;
+    });
+  }
 
   async function fetchIntroMembers() {
     var res = await sb
@@ -59,11 +74,42 @@
     return true;
   }
 
-  function memberCardHtml(m) {
+  function introActionHtml(memberId, eligible, requestState) {
+    if (!eligible) return "";
+
+    if (requestState === "pending") {
+      return '<p class="settings-note" style="margin:0;">Request sent</p>';
+    }
+    if (requestState === "accepted") {
+      return '<p class="settings-note" style="margin:0;">Introduced</p>';
+    }
+
+    return (
+      '<div data-wrap-for="' + memberId + '">' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="request-intro" data-id="' + memberId + '">Request Intro</button>' +
+      "</div>" +
+      '<form class="intro-request-form" data-id="' + memberId + '" hidden>' +
+      '<div class="form-field" style="margin:0.5rem 0;">' +
+      '<label for="intro-note-' + memberId + '">Why are you requesting this intro?</label>' +
+      '<textarea id="intro-note-' + memberId + '" required></textarea>' +
+      "</div>" +
+      '<p class="login-error" data-error-for="' + memberId + '" hidden></p>' +
+      '<div style="display:flex; gap:0.5rem;">' +
+      '<button type="submit" class="btn btn-primary btn-sm">Send Request</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="cancel-intro-form" data-id="' + memberId + '">Cancel</button>' +
+      "</div>" +
+      "</form>"
+    );
+  }
+
+  function memberCardHtml(m, eligible, requestState) {
     var name = m.org_name || m.contact_name || "Member";
     var practices = (m.practices || []).slice(0, 4);
+    var action = introActionHtml(m.id, eligible, requestState);
+
     return (
-      '<a href="profile.html?id=' + encodeURIComponent(m.id) + '" class="post-card" style="display:block;">' +
+      '<div class="post-card">' +
+      '<a href="profile.html?id=' + encodeURIComponent(m.id) + '" style="display:block; color:inherit; text-decoration:none;">' +
       '<div class="post-head">' +
       avatarHtml(name, m.category, m.avatar_url) +
       "<div>" +
@@ -78,17 +124,25 @@
           practices.map(function (p) { return '<span class="cat-pill" style="cursor:default;">' + escapeHtml(p) + "</span>"; }).join("") +
           "</div>"
         : "") +
-      "</a>"
+      "</a>" +
+      (action ? '<div style="margin-top:0.75rem; padding-top:0.6rem; border-top:1px solid var(--color-border);">' + action + "</div>" : "") +
+      "</div>"
     );
   }
 
   function renderIntroMembers() {
     var grid = document.getElementById("intro-members-grid");
     var empty = document.getElementById("intro-members-empty");
+    var upgradeNote = document.getElementById("intro-upgrade-note");
     var filtered = introMembers.filter(memberMatchesFilters);
-    grid.innerHTML = filtered.map(memberCardHtml).join("");
+    var eligible = !!(profile.tier && profile.tier !== "free");
+
+    grid.innerHTML = filtered.map(function (m) {
+      return memberCardHtml(m, eligible, myOutgoingRequests[m.id] || null);
+    }).join("");
     grid.hidden = filtered.length === 0;
     empty.hidden = filtered.length !== 0;
+    if (upgradeNote) upgradeNote.hidden = eligible || filtered.length === 0;
   }
 
   function setupIntroMemberFilters() {
@@ -232,10 +286,69 @@
 
     setupIntroMemberFilters();
     introMembers = await fetchIntroMembers();
+    await fetchMyOutgoingIntros();
     renderIntroMembers();
 
     await loadIncoming();
     await loadResolved();
+
+    var membersGrid = document.getElementById("intro-members-grid");
+
+    membersGrid.addEventListener("click", function (e) {
+      var requestBtn = e.target.closest('[data-action="request-intro"]');
+      if (requestBtn) {
+        var id = requestBtn.dataset.id;
+        var wrap = membersGrid.querySelector('[data-wrap-for="' + id + '"]');
+        var form = membersGrid.querySelector('form.intro-request-form[data-id="' + id + '"]');
+        if (wrap) wrap.hidden = true;
+        if (form) {
+          form.hidden = false;
+          var textarea = form.querySelector("textarea");
+          if (textarea) textarea.focus();
+        }
+        return;
+      }
+
+      var cancelBtn = e.target.closest('[data-action="cancel-intro-form"]');
+      if (cancelBtn) {
+        var cid = cancelBtn.dataset.id;
+        var cwrap = membersGrid.querySelector('[data-wrap-for="' + cid + '"]');
+        var cform = membersGrid.querySelector('form.intro-request-form[data-id="' + cid + '"]');
+        if (cform) cform.hidden = true;
+        if (cwrap) cwrap.hidden = false;
+      }
+    });
+
+    membersGrid.addEventListener("submit", function (e) {
+      var form = e.target.closest("form.intro-request-form");
+      if (!form) return;
+      e.preventDefault();
+
+      var id = form.dataset.id;
+      var textarea = form.querySelector("textarea");
+      var note = textarea.value.trim();
+      if (!note) return;
+
+      var errorEl = form.querySelector('[data-error-for="' + id + '"]');
+      errorEl.hidden = true;
+      var submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+
+      sb.from("intro_requests").insert({
+        requestor_id: profile.id,
+        requestee_id: id,
+        note: note,
+      }).then(function (res) {
+        submitBtn.disabled = false;
+        if (res.error) {
+          errorEl.textContent = res.error.message;
+          errorEl.hidden = false;
+          return;
+        }
+        myOutgoingRequests[id] = "pending";
+        renderIntroMembers();
+      });
+    });
 
     document.getElementById("intros-incoming").addEventListener("click", function (e) {
       var btn = e.target.closest("button[data-action]");

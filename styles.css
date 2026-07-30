@@ -846,9 +846,26 @@ h1, h2, h3 { font-family: var(--font-serif); margin: 0; color: var(--color-brand
 }
 .modal-gate p { margin: 0 0 var(--space-2); font-size: 0.92rem; color: var(--color-brand-dark); }
 
+/* Soft variant — extra-rounded, brand-tinted panel for lightweight in-context
+   forms (e.g. Respond) that would otherwise be a jarring native prompt(). */
+.modal-panel--soft {
+  border-radius: 32px; background: var(--color-cream); border: 1.5px solid var(--color-brand-tint);
+}
+.modal-panel--soft .modal-head h2 { color: var(--color-brand-deep); }
+.modal-panel--soft textarea,
+.modal-panel--soft input {
+  font-family: inherit; font-size: 0.95rem; padding: 0.85rem 1.2rem; width: 100%;
+  border: 1.5px solid var(--color-border); border-radius: 22px; background: #fff;
+  color: var(--color-ink); resize: vertical; min-height: 6rem;
+}
+.modal-panel--soft textarea:focus,
+.modal-panel--soft input:focus { outline: none; border-color: var(--color-brand); }
+.modal-panel--soft .modal-close { background: #fff; }
+
 @media (min-width: 640px) {
   .modal-backdrop { align-items: center; }
   .modal-panel { border-radius: var(--radius-lg); }
+  .modal-panel--soft { border-radius: 40px; }
 }
 
 /* ---------- Membership: pricing tiers ---------- */
@@ -1182,6 +1199,7 @@ body:has(.app-shell) { overflow: hidden; }
 .app-list-item {
   display: flex; align-items: center; gap: 0.65rem; width: 100%; text-align: left; border: none; background: none;
   padding: 0.65rem var(--space-3); cursor: pointer; font-family: inherit; color: var(--color-dark-text); border-radius: 0;
+  text-decoration: none;
 }
 .app-list-item:hover { background: rgba(255,255,255,0.05); }
 .app-list-item.is-active { background: rgba(255,255,255,0.1); }

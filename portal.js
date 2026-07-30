@@ -132,17 +132,52 @@
       : '<p class="settings-note">No listings yet.</p>';
   }
 
-  async function respondToPost(postId) {
-    var body = window.prompt("Write your response to this post:");
-    if (!body || !body.trim()) return;
+  var respondPostId = null;
+
+  function onRespondModalKeydown(e) {
+    if (e.key === "Escape") closeRespondModal();
+  }
+
+  function openRespondModal(postId) {
+    respondPostId = postId;
+    var textarea = document.getElementById("respond-textarea");
+    var errorEl = document.getElementById("respond-error");
+    textarea.value = "";
+    errorEl.hidden = true;
+    document.getElementById("respond-modal-backdrop").classList.add("is-open");
+    document.addEventListener("keydown", onRespondModalKeydown);
+    textarea.focus();
+  }
+
+  function closeRespondModal() {
+    respondPostId = null;
+    document.getElementById("respond-modal-backdrop").classList.remove("is-open");
+    document.removeEventListener("keydown", onRespondModalKeydown);
+  }
+
+  async function submitRespond() {
+    var textarea = document.getElementById("respond-textarea");
+    var errorEl = document.getElementById("respond-error");
+    var body = textarea.value.trim();
+    if (!body || !respondPostId) return;
+    errorEl.hidden = true;
+
+    var form = document.getElementById("respond-form");
+    var submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
 
     // Creating the thread + adding both participants + the first message all
     // happens atomically server-side — a thread has no way to satisfy its own
     // "am I a participant" read policy until a thread_participants row
     // exists, so building it up via separate client-side inserts can never
     // work for the creator reading their own just-created thread back.
-    var res = await sb.rpc("start_rfp_thread", { p_rfp_post_id: postId, p_initial_message: body.trim() });
-    if (res.error) { window.alert(res.error.message); return; }
+    var res = await sb.rpc("start_rfp_thread", { p_rfp_post_id: respondPostId, p_initial_message: body });
+    submitBtn.disabled = false;
+    if (res.error) {
+      errorEl.textContent = res.error.message;
+      errorEl.hidden = false;
+      return;
+    }
 
     window.location.href = "thread.html?id=" + encodeURIComponent(res.data);
   }
@@ -247,7 +282,17 @@
     feedEl.addEventListener("click", function (e) {
       var respondBtn = e.target.closest('[data-action="respond"]');
       if (!respondBtn) return;
-      respondToPost(respondBtn.dataset.id);
+      openRespondModal(respondBtn.dataset.id);
+    });
+
+    document.getElementById("respond-modal-close").addEventListener("click", closeRespondModal);
+    document.getElementById("respond-cancel-btn").addEventListener("click", closeRespondModal);
+    document.getElementById("respond-modal-backdrop").addEventListener("click", function (e) {
+      if (e.target.id === "respond-modal-backdrop") closeRespondModal();
+    });
+    document.getElementById("respond-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      submitRespond();
     });
 
     document.getElementById("exchange-recent-list").addEventListener("click", function (e) {
