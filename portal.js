@@ -246,6 +246,12 @@
       return;
     }
 
+    var welcomeBanner = document.getElementById("welcome-banner");
+    if (welcomeBanner) {
+      welcomeBanner.textContent = "Welcome, " + (profile.name || profile.orgName || "there") + ".";
+      welcomeBanner.hidden = false;
+    }
+
     renderComposerAvatar();
     applyTierGates();
 
