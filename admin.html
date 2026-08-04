@@ -16,7 +16,7 @@
 <div class="app-shell">
   <div class="app-body" style="margin:0 auto; max-width:56rem; float:none;">
     <header class="app-topbar">
-      <div class="app-topbar-title">Admin — Membership Applications</div>
+      <div class="app-topbar-title">Admin</div>
       <div class="app-topbar-spacer"></div>
       <a href="member-portal.html" class="btn btn-outline btn-sm">Back to portal</a>
     </header>
@@ -31,20 +31,47 @@
         </div>
 
         <div id="admin-content" hidden>
-          <div class="app-main-toolbar" style="margin-bottom:1rem;">
-            <span class="settings-note" id="pending-count" style="margin:0; font-weight:700;"></span>
-            <select class="filter-select" id="status-filter" aria-label="Filter by status">
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="all">All</option>
-            </select>
+          <div class="pill-row" style="margin-bottom:1.25rem;">
+            <button type="button" class="cat-pill" data-tab-btn="applications" aria-pressed="true">Membership Applications</button>
+            <button type="button" class="cat-pill" data-tab-btn="candidates" aria-pressed="false">Directory Candidates</button>
           </div>
 
-          <div id="applications-list" style="display:flex; flex-direction:column; gap:1rem;"></div>
-          <div class="empty-state" id="applications-empty" hidden>
-            <h3>Nothing here</h3>
-            <p>No applications match this filter.</p>
+          <div id="tab-applications">
+            <div class="app-main-toolbar" style="margin-bottom:1rem;">
+              <span class="settings-note" id="pending-count" style="margin:0; font-weight:700;"></span>
+              <select class="filter-select" id="status-filter" aria-label="Filter by status">
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+
+            <div id="applications-list" style="display:flex; flex-direction:column; gap:1rem;"></div>
+            <div class="empty-state" id="applications-empty" hidden>
+              <h3>Nothing here</h3>
+              <p>No applications match this filter.</p>
+            </div>
+          </div>
+
+          <div id="tab-candidates" hidden>
+            <div class="app-main-toolbar" style="margin-bottom:1rem;">
+              <span class="settings-note" id="candidates-count" style="margin:0; font-weight:700;"></span>
+              <select class="filter-select" id="candidates-status-filter" aria-label="Filter by status">
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+
+            <p class="settings-note" style="margin-bottom:1rem;">No automated sweep is running yet — this queue is empty until that's set up. Approving a candidate here generates the <code>data.js</code> entry to paste in; it doesn't publish automatically yet.</p>
+
+            <div id="candidates-list" style="display:flex; flex-direction:column; gap:1rem;"></div>
+            <div class="empty-state" id="candidates-empty" hidden>
+              <h3>Nothing here</h3>
+              <p>No candidates match this filter.</p>
+            </div>
           </div>
         </div>
 
@@ -60,6 +87,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=5"></script>
-<script src="admin.js?v=1"></script>
+<script src="admin.js?v=2"></script>
 </body>
 </html>
