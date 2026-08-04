@@ -16,7 +16,7 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <div class="announce" role="note">
-  <p>Applications are reviewed on a rolling basis by the Attire team</p>
+  <p>Applications are reviewed on a rolling basis by the Attire team &mdash; your first 6 months are free once you're in</p>
 </div>
 
 <header class="site-header site-header--dark" id="site-header">
@@ -96,6 +96,10 @@
           sign-up. It's where The Exchange, direct introductions, and Attire's event
           community live.
         </p>
+        <span class="v-badge v-badge--verified" style="font-size:0.82rem; padding:0.4rem 0.85rem; margin-bottom:var(--space-2);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Your first 6 months are free &mdash; cancel anytime after
+        </span>
         <div class="hero-actions">
           <a href="#apply" class="btn btn-primary btn-lg">Start an Application</a>
           <a href="directory.html" class="btn btn-ghost btn-lg">
@@ -209,7 +213,7 @@
         <div class="tier-card is-featured">
           <h3>Organization Membership</h3>
           <p class="tier-audience">For mills, manufacturers, recyclers, consultancies, brands, and NGOs.</p>
-          <p class="tier-price">$18/Monthly <span> — Cancel anytime</span></p>
+          <p class="tier-price">Free for 6 months <span> — then $18/mo, cancel anytime</span></p>
           <ul class="tier-list">
             <li>Enhanced public profile listing</li>
             <li>Full site &amp; directory browsing access</li>
@@ -223,7 +227,7 @@
         <div class="tier-card">
           <h3>Individual / Affiliate</h3>
           <p class="tier-audience">For designers, consultants, students, and independent stakeholders.</p>
-          <p class="tier-price">$15/Monthly <span> — Cancel anytime</span></p>
+          <p class="tier-price">Free for 6 months <span> — then $15/mo, cancel anytime</span></p>
           <ul class="tier-list">
             <li>Personal public profile listing</li>
             <li>Full site &amp; directory browsing access</li>
@@ -296,6 +300,7 @@
             <input type="checkbox" required>
             I understand membership is by application and vetting, and that dues apply once accepted.
           </label>
+          <p class="login-error" id="membership-form-error" hidden></p>
           <div style="margin-top: var(--space-3);">
             <button type="submit" class="btn btn-primary btn-lg btn-block">Submit Application</button>
           </div>
@@ -306,7 +311,20 @@
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           </div>
           <h3 class="section-title" style="font-size:1.4rem;">Application received</h3>
-          <p class="section-lede">We review applications on a rolling basis and will follow up by email.</p>
+          <p class="section-lede">We personally review every application — usually within a few days — and follow up by email either way. Once you're approved, come back to this page and check your status below to finish setting up your account.</p>
+        </div>
+
+        <div class="form-card reveal" style="margin-top: var(--space-3);">
+          <div class="profile-card-head"><h3 style="font-size:1.1rem;">Already applied?</h3></div>
+          <p class="settings-note" style="margin-bottom:0.75rem;">Check your status, or pick up where you left off if you've been approved.</p>
+          <form id="status-check-form" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <div class="form-field" style="flex:1 1 16rem; margin-bottom:0;">
+              <label for="status-check-email" class="sr-only">Email</label>
+              <input type="email" id="status-check-email" placeholder="you@example.com" required>
+            </div>
+            <button type="submit" class="btn btn-outline">Check status</button>
+          </form>
+          <p class="settings-note" id="status-check-result" hidden style="margin-top:0.6rem;"></p>
         </div>
 
         <div class="form-success" id="plan-setup" style="text-align:left;">
@@ -508,9 +526,9 @@
 </div>
 
 <script src="script.js?v=2"></script>
-<script src="membership.js?v=4"></script>
+<script src="membership.js?v=5"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
-<script src="auth.js?v=4"></script>
+<script src="auth.js?v=5"></script>
 </body>
 </html>

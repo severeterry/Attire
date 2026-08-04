@@ -52,6 +52,7 @@
       practices: row.practices || [],
       settings: row.settings || {},
       accountCredit: row.account_credit || 0,
+      isAdmin: row.is_admin || false,
       email: contact ? contact.email : "",
       phone: contact ? contact.phone : "",
     };

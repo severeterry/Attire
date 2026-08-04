@@ -14,21 +14,42 @@
   var accountSetup = document.getElementById("account-setup");
   if (!form) return;
 
+  var sb = window.supabaseClient;
+  var approvedApplication = null; // populated once a "check status" lookup finds an approved application
+
+  var formError = document.getElementById("membership-form-error");
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    form.hidden = true;
-    success.classList.add("is-visible");
-    success.setAttribute("tabindex", "-1");
-    success.focus();
+    if (formError) formError.hidden = true;
 
-    if (planSetup) {
-      setTimeout(function () {
-        success.classList.remove("is-visible");
-        planSetup.classList.add("is-visible");
-        planSetup.setAttribute("tabindex", "-1");
-        planSetup.focus();
-      }, 1400);
-    }
+    var payload = {
+      org_name: document.getElementById("org-name").value.trim(),
+      contact_name: document.getElementById("contact-name").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      website: document.getElementById("website").value.trim() || null,
+      category: document.getElementById("category").value,
+      borough: document.getElementById("borough").value || null,
+      pitch: document.getElementById("pitch").value.trim(),
+    };
+
+    var submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    sb.from("membership_applications").insert(payload).then(function (res) {
+      submitBtn.disabled = false;
+      if (res.error) {
+        if (formError) {
+          formError.textContent = res.error.message;
+          formError.hidden = false;
+        }
+        return;
+      }
+      form.hidden = true;
+      success.classList.add("is-visible");
+      success.setAttribute("tabindex", "-1");
+      success.focus();
+    });
   });
 
   // ---- Plan + billing-term selection ----
@@ -121,14 +142,15 @@
     }
     errorEl.hidden = true;
 
+    if (!approvedApplication) return; // shouldn't be reachable — this step only shows after an approved lookup
     var fields = {
-      orgName: (document.getElementById("org-name") || {}).value || "",
-      contactName: (document.getElementById("contact-name") || {}).value || "",
-      category: (document.getElementById("category") || {}).value || null,
-      borough: (document.getElementById("borough") || {}).value || "",
-      email: (document.getElementById("email") || {}).value || "",
-      website: (document.getElementById("website") || {}).value || "",
-      pitch: (document.getElementById("pitch") || {}).value || "",
+      orgName: approvedApplication.org_name || "",
+      contactName: approvedApplication.contact_name || "",
+      category: approvedApplication.category || null,
+      borough: approvedApplication.borough || "",
+      email: approvedApplication.email || "",
+      website: approvedApplication.website || "",
+      pitch: approvedApplication.pitch || "",
     };
     var billing = pendingBilling || {
       tier: "individual", tierLabel: PLAN_LABELS.individual, termMonths: 1,
@@ -168,6 +190,10 @@
           return;
         }
 
+        if (approvedApplication) {
+          sb.rpc("mark_application_converted", { p_application_id: approvedApplication.id });
+        }
+
         if (session) {
           window.location.href = "member-portal.html";
           return;
@@ -182,4 +208,60 @@
       });
     });
   });
+
+  // ---- Check application status (resumes an approved application) ----
+  var statusForm = document.getElementById("status-check-form");
+  if (statusForm) {
+    var statusResult = document.getElementById("status-check-result");
+
+    statusForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var email = document.getElementById("status-check-email").value.trim();
+      if (!email) return;
+      statusResult.hidden = true;
+
+      var submitBtn = statusForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+
+      sb.rpc("check_application_status", { p_email: email }).then(function (res) {
+        submitBtn.disabled = false;
+
+        if (res.error || !res.data || !res.data.length) {
+          statusResult.textContent = "We couldn't find an application for that email.";
+          statusResult.hidden = false;
+          return;
+        }
+        var status = res.data[0].status;
+
+        if (status === "pending") {
+          statusResult.textContent = "Still under review — we'll follow up by email as soon as there's an update.";
+          statusResult.hidden = false;
+          return;
+        }
+        if (status === "rejected") {
+          statusResult.textContent = "Thanks for your interest — we don't have a place for this application right now.";
+          statusResult.hidden = false;
+          return;
+        }
+
+        // approved — fetch the saved fields and resume straight into plan setup
+        sb.rpc("get_approved_application", { p_email: email }).then(function (appRes) {
+          if (appRes.error || !appRes.data || !appRes.data.length) {
+            statusResult.textContent = "This application was approved but couldn't be loaded — contact us directly.";
+            statusResult.hidden = false;
+            return;
+          }
+          approvedApplication = appRes.data[0];
+          statusForm.closest(".form-card").hidden = true;
+          if (form) form.hidden = true;
+          success.classList.remove("is-visible");
+          if (planSetup) {
+            planSetup.classList.add("is-visible");
+            planSetup.setAttribute("tabindex", "-1");
+            planSetup.focus();
+          }
+        });
+      });
+    });
+  }
 })();
