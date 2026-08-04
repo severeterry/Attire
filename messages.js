@@ -200,20 +200,22 @@
 
     var listEl = document.getElementById("context-members-list");
     var connected = acceptedConnectionsFor(profile.name);
-    var suggestions = (typeof LISTINGS !== "undefined" ? LISTINGS : [])
-      .filter(function (l) { return l.name !== profile.name && connected.indexOf(l.name) === -1; })
-      .slice(0, 6);
-    listEl.innerHTML = suggestions
-      .map(function (l) {
-        return (
-          '<a class="context-member-item" href="' + profileLink(l.name) + '">' +
-          avatarHtml(l.name, l.category) +
-          '<span><span class="context-member-name">' + escapeHtml(l.name) + "</span>" +
-          '<span class="context-member-sub">' + escapeHtml(labelForCategory(l.category)) + "</span></span>" +
-          "</a>"
-        );
-      })
-      .join("");
+    sb.from("directory_listings").select("name, category").order("name", { ascending: true }).then(function (res) {
+      var suggestions = (res.data || [])
+        .filter(function (l) { return l.name !== profile.name && connected.indexOf(l.name) === -1; })
+        .slice(0, 6);
+      listEl.innerHTML = suggestions
+        .map(function (l) {
+          return (
+            '<a class="context-member-item" href="' + profileLink(l.name) + '">' +
+            avatarHtml(l.name, l.category) +
+            '<span><span class="context-member-name">' + escapeHtml(l.name) + "</span>" +
+            '<span class="context-member-sub">' + escapeHtml(labelForCategory(l.category)) + "</span></span>" +
+            "</a>"
+          );
+        })
+        .join("");
+    });
   }
 
   function renderContextChat(thread) {

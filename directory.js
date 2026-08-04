@@ -4,6 +4,8 @@
   var CATEGORY_LABELS = {};
   CATEGORIES.forEach(function (c) { CATEGORY_LABELS[c.id] = c.label; });
 
+  var LISTINGS = [];
+
   var grid = document.getElementById("directory-grid");
   var emptyState = document.getElementById("empty-state");
   var resultsCount = document.getElementById("results-count");
@@ -160,12 +162,28 @@
     if (e.target === modalBackdrop) closeModal();
   });
 
-  // Preselect category from ?category= query param (linked from home page)
-  var params = new URLSearchParams(window.location.search);
-  var initialCategory = params.get("category");
-  if (initialCategory && CATEGORY_LABELS[initialCategory]) {
-    setCategoryPill(initialCategory);
-  } else {
-    render();
+  async function fetchListings() {
+    var res = await window.supabaseClient.from("directory_listings").select("*").order("name", { ascending: true });
+    if (res.error) { console.error(res.error); return []; }
+    return res.data.map(function (row) {
+      return {
+        id: row.id, name: row.name, category: row.category, subcategory: row.subcategory,
+        borough: row.borough, verified: row.verified, tag: row.tag, yearsNote: row.years_note,
+        description: row.description, goodToKnow: row.good_to_know,
+      };
+    });
   }
+
+  fetchListings().then(function (data) {
+    LISTINGS = data;
+
+    // Preselect category from ?category= query param (linked from home page)
+    var params = new URLSearchParams(window.location.search);
+    var initialCategory = params.get("category");
+    if (initialCategory && CATEGORY_LABELS[initialCategory]) {
+      setCategoryPill(initialCategory);
+    } else {
+      render();
+    }
+  });
 })();

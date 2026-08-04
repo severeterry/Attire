@@ -278,7 +278,8 @@
     } else if (memberParam && memberParam !== profile.name) {
       viewingOther = true;
       otherName = memberParam;
-      otherListing = (typeof LISTINGS !== "undefined" ? LISTINGS.find(function (l) { return l.name === memberParam; }) : null) || null;
+      var listingRes = await sb.from("directory_listings").select("*").eq("name", memberParam).maybeSingle();
+      otherListing = listingRes.data ? { category: listingRes.data.category, borough: listingRes.data.borough, description: listingRes.data.description, goodToKnow: listingRes.data.good_to_know } : null;
       renderOtherStaticListing(otherName, otherListing);
     } else {
       await renderOwnProfile();

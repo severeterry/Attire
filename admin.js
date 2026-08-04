@@ -100,20 +100,21 @@
     return String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   }
 
-  function dataJsSnippet(c) {
-    var lines = [
-      "  {",
-      '    id: "' + slugify(c.name) + '",',
-      '    name: "' + c.name.replace(/"/g, '\\"') + '",',
-      '    category: "' + c.category + '",',
-    ];
-    if (c.subcategory) lines.push('    subcategory: "' + c.subcategory.replace(/"/g, '\\"') + '",');
-    lines.push('    borough: "' + (c.borough || "NYC Presence").replace(/"/g, '\\"') + '",');
-    lines.push("    verified: false,");
-    lines.push('    description: "' + c.description.replace(/"/g, '\\"') + '",');
-    if (c.good_to_know) lines.push('    goodToKnow: "' + c.good_to_know.replace(/"/g, '\\"') + '",');
-    lines.push("  },");
-    return lines.join("\n");
+  // Approving inserts straight into the live public directory — new
+  // listings always land as verified:false (matches the site-wide
+  // discipline that verification is never assumed, even for something the
+  // founder just personally approved for inclusion).
+  async function publishCandidate(c) {
+    return sb.from("directory_listings").insert({
+      id: slugify(c.name),
+      name: c.name,
+      category: c.category,
+      subcategory: c.subcategory || "Uncategorized",
+      borough: c.borough || "NYC Presence",
+      verified: false,
+      description: c.description,
+      good_to_know: c.good_to_know,
+    });
   }
 
   async function fetchCandidates() {
@@ -134,14 +135,9 @@
         "</div>" +
         '<p class="login-error" data-cand-error-for="' + c.id + '" hidden></p>';
     } else {
-      var statusLabel = c.status === "approved" ? "Approved" : "Rejected";
+      var statusLabel = c.status === "approved" ? "Approved &amp; published to the directory" : "Rejected";
       actions = '<p class="settings-note" style="font-weight:700; margin-top:0.5rem;">' + statusLabel +
         (c.reviewed_at ? " " + relativeTime(new Date(c.reviewed_at).getTime()) + " ago" : "") + "</p>";
-      if (c.status === "approved") {
-        actions += '<pre style="white-space:pre-wrap; font-size:0.78rem; background:var(--color-cream); border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:0.6rem; margin-top:0.5rem;">' +
-          escapeHtml(dataJsSnippet(c)) + "</pre>" +
-          '<p class="settings-note">Paste this into <code>data.js</code>\'s <code>LISTINGS</code> array to actually publish it.</p>';
-      }
     }
 
     return (
@@ -235,20 +231,31 @@
       reloadCandidates();
     });
 
-    document.getElementById("candidates-list").addEventListener("click", function (e) {
+    document.getElementById("candidates-list").addEventListener("click", async function (e) {
       var approveBtn = e.target.closest('[data-action="approve-candidate"]');
       var rejectBtn = e.target.closest('[data-action="reject-candidate"]');
       var btn = approveBtn || rejectBtn;
       if (!btn) return;
 
       btn.disabled = true;
+      var errEl = document.querySelector('[data-cand-error-for="' + btn.dataset.id + '"]');
+
+      if (approveBtn) {
+        var candidate = candidates.find(function (c) { return c.id === btn.dataset.id; });
+        var publishRes = await publishCandidate(candidate);
+        if (publishRes.error) {
+          if (errEl) { errEl.textContent = "Couldn't publish: " + publishRes.error.message; errEl.hidden = false; }
+          btn.disabled = false;
+          return;
+        }
+      }
+
       var newStatus = approveBtn ? "approved" : "rejected";
       sb.from("directory_candidates")
         .update({ status: newStatus, reviewed_at: new Date().toISOString() })
         .eq("id", btn.dataset.id)
         .then(function (res) {
           if (res.error) {
-            var errEl = document.querySelector('[data-cand-error-for="' + btn.dataset.id + '"]');
             if (errEl) { errEl.textContent = res.error.message; errEl.hidden = false; }
             btn.disabled = false;
             return;

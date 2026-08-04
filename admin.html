@@ -65,7 +65,7 @@
               </select>
             </div>
 
-            <p class="settings-note" style="margin-bottom:1rem;">No automated sweep is running yet — this queue is empty until that's set up. Approving a candidate here generates the <code>data.js</code> entry to paste in; it doesn't publish automatically yet.</p>
+            <p class="settings-note" style="margin-bottom:1rem;">No automated sweep is running yet — this queue is empty until that's set up. Approving a candidate here publishes it straight to the live directory as unverified.</p>
 
             <div id="candidates-list" style="display:flex; flex-direction:column; gap:1rem;"></div>
             <div class="empty-state" id="candidates-empty" hidden>
@@ -80,13 +80,13 @@
   </div>
 </div>
 
-<script src="data.js?v=3"></script>
+<script src="data.js?v=4"></script>
 <script src="portal-data.js?v=4"></script>
 <script src="profile-data.js?v=3"></script>
 <script src="script.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=5"></script>
-<script src="admin.js?v=2"></script>
+<script src="admin.js?v=3"></script>
 </body>
 </html>
