@@ -1221,6 +1221,13 @@ body:has(.app-shell) { overflow: hidden; }
 .app-dropdown[hidden] { display: none; }
 .app-dropdown-head { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); font-family: var(--font-serif); font-weight: 700; color: var(--color-brand-deep); }
 .app-dropdown-empty { padding: var(--space-4) var(--space-3); text-align: center; color: var(--color-ink-soft); font-size: 0.88rem; }
+/* .app-list-item is designed for the dark .app-list sidebar (white text on
+   transparent); reused here inside the white .app-dropdown preview panel,
+   so it needs its own dark-on-light colors rather than inheriting those. */
+.app-dropdown .app-list-item-name { color: var(--color-ink); }
+.app-dropdown .app-list-item-preview { color: var(--color-ink-soft); }
+.app-dropdown .app-list-item:hover { background: var(--color-cream); }
+.app-dropdown .app-list-icon { background: var(--color-brand-tint); color: var(--color-brand-deep); }
 
 /* ---------- Content wrapper ---------- */
 .app-content { flex: 1; min-height: 0; }
