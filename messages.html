@@ -93,14 +93,19 @@
 
     <div class="app-content app-content--rows">
       <aside class="app-list">
-        <div class="app-list-section-label">Direct Messages</div>
+        <div class="app-list-section-label" style="display:flex; align-items:center; justify-content:space-between;">
+          <span>Direct Messages</span>
+          <button type="button" class="icon-btn" id="new-message-btn" aria-label="New message" title="New message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
         <div id="chat-thread-list"></div>
       </aside>
 
       <main class="app-main" id="app-main">
         <div id="messages-empty-state" class="empty-state">
           <h3>Select a conversation</h3>
-          <p>Pick a thread on the left, or start one from a member's profile.</p>
+          <p>Pick a thread on the left, or start a new one.</p>
         </div>
 
         <div id="view-chat" hidden>
@@ -114,6 +119,10 @@
             </div>
             <div class="chat-messages" id="chat-messages"></div>
             <form class="chat-compose" id="chat-compose-form">
+              <button type="button" class="icon-btn" id="chat-attach-btn" aria-label="Attach image">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </button>
+              <input type="file" id="chat-image-input" accept="image/*" hidden>
               <input type="text" id="chat-input" placeholder="Write a message&hellip;" aria-label="Write a message" required>
               <button type="submit" class="icon-btn" aria-label="Send message">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>
@@ -134,6 +143,34 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="new-message-backdrop">
+  <div class="modal-panel modal-panel--soft intro-popup-panel" role="dialog" aria-modal="true" aria-labelledby="new-message-title">
+    <button type="button" class="modal-close" id="new-message-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="modal-head">
+      <h2 id="new-message-title">New message</h2>
+    </div>
+    <div class="form-field" style="margin-bottom:0.75rem;">
+      <label for="new-message-search" class="sr-only">Search members</label>
+      <input type="search" id="new-message-search" placeholder="Search by name or organization&hellip;">
+    </div>
+    <div id="new-message-results" style="max-height:220px; overflow-y:auto;"></div>
+    <form id="new-message-form" hidden>
+      <p class="settings-note" id="new-message-recipient" style="font-weight:700;"></p>
+      <div class="form-field" style="margin:0.5rem 0;">
+        <label for="new-message-textarea" class="sr-only">Your message</label>
+        <textarea id="new-message-textarea" placeholder="Write your first message&hellip;" required></textarea>
+      </div>
+      <p class="login-error" id="new-message-error" hidden></p>
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+        <button type="button" class="btn btn-outline btn-sm" id="new-message-cancel-btn">Back</button>
+        <button type="submit" class="btn btn-primary btn-sm">Send</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="data.js?v=4"></script>
 <script src="portal-data.js?v=4"></script>
 <script src="profile-data.js?v=3"></script>
@@ -142,6 +179,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
 <script src="shell.js?v=3"></script>
-<script src="messages.js?v=4"></script>
+<script src="messages.js?v=5"></script>
 </body>
 </html>

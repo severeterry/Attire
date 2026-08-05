@@ -1,15 +1,13 @@
 (function () {
   "use strict";
 
-  // General 1:1 direct-message threads — localStorage, unchanged from the
-  // prototype. Extracted out of member-portal.html/portal.js into its own
-  // page so Messages is a first-class nav destination instead of a panel
-  // bolted onto The Exchange.
-  var DM_STORAGE_KEY = "attire-portal-dm-v1";
-
-  var dmState = null;
+  // Real 1:1 direct-message threads — Supabase-backed (threads/messages/
+  // thread_participants), same tables Exchange/Co-Op/thread.html use. A
+  // plain DM thread is just a threads row with no rfp_post_id and no
+  // pooling_threads row pointing at it as a chat_thread_id.
   var profile = null;
   var activeThreadId = null;
+  var dmThreads = [];
 
   function initials(name) {
     var parts = name.trim().split(/\s+/);
@@ -25,36 +23,6 @@
     var hr = Math.round(min / 60);
     if (hr < 24) return hr + "h";
     return Math.round(hr / 24) + "d";
-  }
-
-  function buildInitialDmState() {
-    var now = Date.now();
-    var threads = PORTAL_SEED_THREADS.map(function (t) {
-      return {
-        id: t.id,
-        name: t.name,
-        category: t.category,
-        unread: t.unread,
-        messages: t.messages.map(function (m) {
-          return { from: m.from, text: m.text, createdAt: now - m.ageMs };
-        }),
-      };
-    });
-    return { threads: threads };
-  }
-
-  function loadDmState() {
-    try {
-      var raw = localStorage.getItem(DM_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    var fresh = buildInitialDmState();
-    saveDmState(fresh);
-    return fresh;
-  }
-
-  function saveDmState(s) {
-    try { localStorage.setItem(DM_STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
   }
 
   function escapeHtml(str) {
@@ -100,28 +68,73 @@
 
   var sb = window.supabaseClient;
 
+  // Fetches every plain DM thread the caller is in — no rfp_post_id, and
+  // not referenced by any pooling_threads.chat_thread_id (those live only
+  // on their own pages now, see portal.js/pooling.js's Active Threads).
+  async function fetchDmThreads() {
+    var tpRes = await sb.from("thread_participants").select("thread_id, last_read_at").eq("profile_id", profile.id);
+    if (tpRes.error || !tpRes.data.length) return [];
+    var lastReadByThread = {};
+    tpRes.data.forEach(function (r) { lastReadByThread[r.thread_id] = r.last_read_at; });
+    var threadIds = tpRes.data.map(function (r) { return r.thread_id; });
+
+    var threadsRes = await sb.from("threads").select("id, status, last_message_at")
+      .in("id", threadIds).is("rfp_post_id", null).order("last_message_at", { ascending: false });
+    if (threadsRes.error || !threadsRes.data.length) return [];
+
+    var poolRes = await sb.from("pooling_threads").select("chat_thread_id").in("chat_thread_id", threadsRes.data.map(function (t) { return t.id; }));
+    var coopThreadIds = new Set((poolRes.data || []).map(function (p) { return p.chat_thread_id; }));
+    var plainThreads = threadsRes.data.filter(function (t) { return !coopThreadIds.has(t.id); });
+    if (!plainThreads.length) return [];
+
+    var otherRes = await sb.from("thread_participants").select("thread_id, profiles(id, org_name, contact_name, category, avatar_url)")
+      .in("thread_id", plainThreads.map(function (t) { return t.id; })).neq("profile_id", profile.id);
+    var otherByThread = {};
+    (otherRes.data || []).forEach(function (r) { otherByThread[r.thread_id] = r.profiles; });
+
+    var lastMsgRes = await sb.from("messages").select("thread_id, body, image_url, created_at")
+      .in("thread_id", plainThreads.map(function (t) { return t.id; })).order("created_at", { ascending: false });
+    var lastMsgByThread = {};
+    (lastMsgRes.data || []).forEach(function (m) { if (!lastMsgByThread[m.thread_id]) lastMsgByThread[m.thread_id] = m; });
+
+    var threads = [];
+    for (var i = 0; i < plainThreads.length; i++) {
+      var t = plainThreads[i];
+      var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
+        .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id] || "1970-01-01");
+      var lastMsg = lastMsgByThread[t.id];
+      threads.push({
+        id: t.id, status: t.status, other: otherByThread[t.id] || null,
+        preview: lastMsg ? (lastMsg.body || (lastMsg.image_url ? "Sent a photo" : "")) : "",
+        unread: unreadRes.count || 0,
+      });
+    }
+    return threads;
+  }
+
   function renderThreadList() {
     var listEl = document.getElementById("chat-thread-list");
     if (!listEl) return;
-    listEl.innerHTML = dmState.threads
-      .map(function (t) {
-        var last = t.messages[t.messages.length - 1];
-        return (
-          '<button type="button" class="app-list-item' + (t.id === activeThreadId ? " is-active" : "") + '" data-id="' + t.id + '">' +
-          avatarHtml(t.name, t.category) +
-          '<span class="app-list-item-body"><span class="app-list-item-name">' + escapeHtml(t.name) + "</span>" +
-          '<span class="app-list-item-preview">' + escapeHtml(last ? last.text : "") + "</span></span>" +
-          (t.unread ? '<span class="app-list-item-unread" aria-hidden="true"></span>' : "") +
-          "</button>"
-        );
-      })
-      .join("");
+    listEl.innerHTML = dmThreads.length
+      ? dmThreads.map(function (t) {
+          var other = t.other || {};
+          var name = other.org_name || other.contact_name || "Member";
+          return (
+            '<button type="button" class="app-list-item' + (t.id === activeThreadId ? " is-active" : "") + '" data-id="' + t.id + '">' +
+            avatarHtml(name, other.category, null, other.avatar_url) +
+            '<span class="app-list-item-body"><span class="app-list-item-name">' + escapeHtml(name) + "</span>" +
+            '<span class="app-list-item-preview">' + escapeHtml(t.preview || "") + "</span></span>" +
+            (t.unread > 0 ? '<span class="app-list-item-unread" aria-hidden="true"></span>' : "") +
+            "</button>"
+          );
+        }).join("")
+      : '<p class="settings-note" style="padding:0 var(--space-3);">No conversations yet — start one with the + button above.</p>';
   }
 
-  function renderChatView() {
+  async function renderChatView() {
     var emptyState = document.getElementById("messages-empty-state");
     var viewChat = document.getElementById("view-chat");
-    var thread = dmState.threads.find(function (t) { return t.id === activeThreadId; });
+    var thread = dmThreads.find(function (t) { return t.id === activeThreadId; });
 
     if (!thread) {
       emptyState.hidden = false;
@@ -131,19 +144,36 @@
     }
     emptyState.hidden = true;
     viewChat.hidden = false;
-    document.getElementById("chat-view-name").textContent = thread.name;
+    var other = thread.other || {};
+    var name = other.org_name || other.contact_name || "Member";
+    document.getElementById("chat-view-name").textContent = name;
     var avatarEl = document.getElementById("chat-view-avatar");
-    avatarEl.textContent = initials(thread.name);
-    if (thread.category) avatarEl.setAttribute("data-cat", thread.category);
+    if (other.avatar_url) {
+      avatarEl.innerHTML = '<img src="' + escapeHtml(other.avatar_url) + '" alt="">';
+      avatarEl.classList.add("portal-avatar-img");
+    } else {
+      avatarEl.classList.remove("portal-avatar-img");
+      avatarEl.textContent = initials(name);
+    }
+    if (other.category) avatarEl.setAttribute("data-cat", other.category);
     else avatarEl.removeAttribute("data-cat");
+
     var messagesEl = document.getElementById("chat-messages");
-    messagesEl.innerHTML = thread.messages
-      .map(function (m) {
-        return '<div class="chat-bubble from-' + (m.from === "me" ? "me" : "them") + '">' + escapeHtml(m.text) + "</div>";
-      })
-      .join("");
+    var msgRes = await sb.from("messages").select("id, sender_id, body, image_url, created_at").eq("thread_id", activeThreadId).order("created_at", { ascending: true });
+    messagesEl.innerHTML = (msgRes.data || []).length
+      ? msgRes.data.map(function (m) {
+          var mine = m.sender_id === profile.id;
+          return '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+            (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
+            (m.body ? escapeHtml(m.body) : "") + "</div>";
+        }).join("")
+      : '<p class="settings-note">No messages yet.</p>';
     messagesEl.scrollTop = messagesEl.scrollHeight;
-    renderContextChat(thread);
+
+    sb.from("thread_participants").update({ last_read_at: new Date().toISOString() })
+      .eq("thread_id", activeThreadId).eq("profile_id", profile.id).then(function () {});
+
+    renderContextChat({ id: other.id, name: name, category: other.category });
   }
 
   function renderContextFeed() {
@@ -211,6 +241,61 @@
     }
   }
 
+  async function uploadChatImage(file) {
+    if (!file) return null;
+    var ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    var path = profile.id + "/" + Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
+    var res = await sb.storage.from("post-attachments").upload(path, file);
+    if (res.error) return null;
+    return sb.storage.from("post-attachments").getPublicUrl(path).data.publicUrl;
+  }
+
+  async function reloadThreads() {
+    dmThreads = await fetchDmThreads();
+  }
+
+  function openNewMessageModal() {
+    document.getElementById("new-message-backdrop").classList.add("is-open");
+    document.getElementById("new-message-search").value = "";
+    document.getElementById("new-message-results").innerHTML = "";
+    document.getElementById("new-message-form").hidden = true;
+    document.getElementById("new-message-search").hidden = false;
+    document.getElementById("new-message-search").focus();
+  }
+
+  function closeNewMessageModal() {
+    document.getElementById("new-message-backdrop").classList.remove("is-open");
+  }
+
+  async function searchMembers(query) {
+    var resultsEl = document.getElementById("new-message-results");
+    if (!query || query.trim().length < 2) {
+      resultsEl.innerHTML = "";
+      return;
+    }
+    var safeQuery = query.replace(/[,()%]/g, "").trim();
+    if (!safeQuery) {
+      resultsEl.innerHTML = "";
+      return;
+    }
+    var res = await sb.from("profiles").select("id, org_name, contact_name, category, avatar_url")
+      .neq("id", profile.id)
+      .or("org_name.ilike.%" + safeQuery + "%,contact_name.ilike.%" + safeQuery + "%")
+      .limit(10);
+    var rows = res.data || [];
+    resultsEl.innerHTML = rows.length
+      ? rows.map(function (m) {
+          var name = m.org_name || m.contact_name || "Member";
+          return (
+            '<button type="button" class="app-list-item" data-member-id="' + m.id + '" data-member-name="' + escapeHtml(name) + '" style="width:100%;">' +
+            avatarHtml(name, m.category, null, m.avatar_url) +
+            '<span class="app-list-item-body"><span class="app-list-item-name">' + escapeHtml(name) + "</span></span>" +
+            "</button>"
+          );
+        }).join("")
+      : '<p class="settings-note">No members found.</p>';
+  }
+
   document.addEventListener("DOMContentLoaded", async function () {
     if (!window.AttireAuth) return;
     var session = await window.AttireAuth.getSession();
@@ -225,18 +310,14 @@
     }
 
     seedConnectionsIfEmpty(profile.name);
-    dmState = loadDmState();
+    await reloadThreads();
 
     var params = new URLSearchParams(window.location.search);
     var threadParam = params.get("thread");
-    if (threadParam) {
-      activeThreadId = threadParam;
-      var openedThread = dmState.threads.find(function (t) { return t.id === threadParam; });
-      if (openedThread) { openedThread.unread = false; saveDmState(dmState); }
-    }
+    if (threadParam) activeThreadId = threadParam;
 
     renderThreadList();
-    renderChatView();
+    await renderChatView();
 
     document.getElementById("chat-back").addEventListener("click", function () {
       activeThreadId = null;
@@ -248,23 +329,94 @@
       var item = e.target.closest(".app-list-item");
       if (!item) return;
       activeThreadId = item.dataset.id;
-      var thread = dmState.threads.find(function (t) { return t.id === activeThreadId; });
-      if (thread) thread.unread = false;
-      saveDmState(dmState);
       renderThreadList();
       renderChatView();
     });
 
-    document.getElementById("chat-compose-form").addEventListener("submit", function (e) {
+    var chatImageInput = document.getElementById("chat-image-input");
+    document.getElementById("chat-attach-btn").addEventListener("click", function () {
+      chatImageInput.click();
+    });
+
+    document.getElementById("chat-compose-form").addEventListener("submit", async function (e) {
       e.preventDefault();
       var chatInput = document.getElementById("chat-input");
       var text = chatInput.value.trim();
-      if (!text || !activeThreadId) return;
-      var thread = dmState.threads.find(function (t) { return t.id === activeThreadId; });
-      if (!thread) return;
-      thread.messages.push({ from: "me", text: text, createdAt: Date.now() });
+      var imageFile = chatImageInput.files[0];
+      if ((!text && !imageFile) || !activeThreadId) return;
+
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      var imageUrl = await uploadChatImage(imageFile);
+      var res = await sb.from("messages").insert({ thread_id: activeThreadId, sender_id: profile.id, body: text || "", image_url: imageUrl });
+      submitBtn.disabled = false;
+      if (res.error) {
+        window.alert(res.error.message);
+        return;
+      }
       chatInput.value = "";
-      saveDmState(dmState);
+      chatImageInput.value = "";
+      await reloadThreads();
+      renderThreadList();
+      renderChatView();
+    });
+
+    // New Message modal
+    var newMessageSelectedId = null;
+    document.getElementById("new-message-btn").addEventListener("click", openNewMessageModal);
+    document.getElementById("new-message-close").addEventListener("click", closeNewMessageModal);
+    document.getElementById("new-message-backdrop").addEventListener("click", function (e) {
+      if (e.target.id === "new-message-backdrop") closeNewMessageModal();
+    });
+
+    var searchDebounce;
+    document.getElementById("new-message-search").addEventListener("input", function (e) {
+      clearTimeout(searchDebounce);
+      var val = e.target.value;
+      searchDebounce = setTimeout(function () { searchMembers(val); }, 250);
+    });
+
+    document.getElementById("new-message-results").addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-member-id]");
+      if (!btn) return;
+      newMessageSelectedId = btn.dataset.memberId;
+      document.getElementById("new-message-search").hidden = true;
+      document.getElementById("new-message-results").hidden = true;
+      document.getElementById("new-message-recipient").textContent = "To: " + btn.dataset.memberName;
+      document.getElementById("new-message-form").hidden = false;
+      document.getElementById("new-message-error").hidden = true;
+      document.getElementById("new-message-textarea").value = "";
+      document.getElementById("new-message-textarea").focus();
+    });
+
+    document.getElementById("new-message-cancel-btn").addEventListener("click", function () {
+      newMessageSelectedId = null;
+      document.getElementById("new-message-form").hidden = true;
+      document.getElementById("new-message-search").hidden = false;
+      document.getElementById("new-message-results").hidden = false;
+    });
+
+    document.getElementById("new-message-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      if (!newMessageSelectedId) return;
+      var textarea = document.getElementById("new-message-textarea");
+      var text = textarea.value.trim();
+      if (!text) return;
+      var errorEl = document.getElementById("new-message-error");
+      errorEl.hidden = true;
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      var res = await sb.rpc("start_direct_thread", { p_other_profile_id: newMessageSelectedId, p_initial_message: text });
+      submitBtn.disabled = false;
+      if (res.error) {
+        errorEl.textContent = res.error.message;
+        errorEl.hidden = false;
+        return;
+      }
+      closeNewMessageModal();
+      activeThreadId = res.data;
+      await reloadThreads();
+      renderThreadList();
       renderChatView();
     });
   });
