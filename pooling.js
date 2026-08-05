@@ -103,7 +103,7 @@
   async function fetchPools() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, image_url, profiles(org_name, contact_name, category, avatar_url)")
+      .select("id, title, description, category, moq, unit_cost, production_run_details, service_type, cost_per_member_estimate, logistics_notes, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, image_url, profiles(org_name, contact_name, category, avatar_url)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     var poolList = res.data;
@@ -122,13 +122,31 @@
     return list;
   }
 
+  function progressBarHtml(joined, target, cap) {
+    var pct = target > 0 ? Math.min(100, Math.round((joined / target) * 100)) : 0;
+    return (
+      '<div class="pool-progress" role="progressbar" aria-valuenow="' + joined + '" aria-valuemin="0" aria-valuemax="' + target + '">' +
+      '<div class="pool-progress-bar" style="width:' + pct + '%;"></div>' +
+      "</div>" +
+      '<p class="settings-note" style="margin-top:0.3rem;">' + joined + " of " + target + " joined" +
+      (cap ? " (cap " + cap + ")" : "") + "</p>"
+    );
+  }
+
   function poolCardHtml(pool) {
     var joined = pool.acceptedCount || 0;
     var organizer = pool.profiles || {};
     var name = organizer.org_name || organizer.contact_name || "Member";
 
+    var fullDetails = pool.category === "materials"
+      ? [pool.moq ? "MOQ: " + escapeHtml(pool.moq) : null, pool.unit_cost ? "Unit cost: " + escapeHtml(pool.unit_cost) : null, pool.production_run_details ? "Production: " + escapeHtml(pool.production_run_details) : null]
+      : [pool.service_type ? "Service: " + escapeHtml(pool.service_type) : null, pool.cost_per_member_estimate ? "Est. cost: " + escapeHtml(pool.cost_per_member_estimate) : null];
+    if (pool.closes_at) fullDetails.push("Closes: " + new Date(pool.closes_at).toLocaleString());
+    if (pool.logistics_notes) fullDetails.push("Logistics: " + escapeHtml(pool.logistics_notes));
+    fullDetails = fullDetails.filter(Boolean);
+
     return (
-      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="post-card is-coop" style="display:block;">' +
+      '<article class="post-card is-coop" data-id="' + pool.id + '">' +
       '<div class="post-type-flag-slot"><span class="post-type-flag post-type-flag--coop">The Co-Op</span></div>' +
       '<div class="post-head">' +
       avatarHtml(name, organizer.category, organizer.avatar_url) +
@@ -138,11 +156,17 @@
       "</div></div>" +
       (pool.image_url ? '<img class="post-attachment-img" src="' + escapeHtml(pool.image_url) + '" alt="" loading="lazy">' : "") +
       '<p class="post-author-name" style="margin-top:0.6rem;">' + escapeHtml(pool.title) + "</p>" +
-      '<p class="settings-note">' +
-      labelForPoolCategory(pool.category) + " &mdash; " +
-      joined + " of " + pool.target_group_size + " joined" +
-      (pool.participant_cap ? " (cap " + pool.participant_cap + ")" : "") + " &mdash; " + pool.status +
-      "</p></a>"
+      '<p class="settings-note post-body--clamped">' + escapeHtml(pool.description || "") + "</p>" +
+      '<p class="settings-note">' + labelForPoolCategory(pool.category) + " &mdash; " + pool.status + "</p>" +
+      progressBarHtml(joined, pool.target_group_size, pool.participant_cap) +
+      '<div class="post-expand-details" hidden>' +
+      (fullDetails.length ? '<ul class="post-detail-list">' + fullDetails.map(function (d) { return "<li>" + d + "</li>"; }).join("") + "</ul>" : "") +
+      "</div>" +
+      '<div class="post-actions">' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="toggle-expand">See full details</button>' +
+      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="btn btn-primary btn-sm">View &amp; Join</a>' +
+      "</div>" +
+      "</article>"
     );
   }
 
@@ -334,8 +358,8 @@
       '<p class="section-lede">' + escapeHtml(pool.description) + "</p>" +
       '<div class="form-card">' +
       (detailsLine ? '<p class="settings-note">' + detailsLine + "</p>" : "") +
-      '<p style="font-weight:700; margin-top:0.75rem;">' + acceptedParticipants.length + " of " + pool.target_group_size + " joined" +
-      (pool.participant_cap ? " (cap " + pool.participant_cap + ")" : "") + "</p>" +
+      (pool.logistics_notes ? '<p class="settings-note">Logistics: ' + escapeHtml(pool.logistics_notes) + "</p>" : "") +
+      '<div style="margin-top:0.75rem;">' + progressBarHtml(acceptedParticipants.length, pool.target_group_size, pool.participant_cap) + "</div>" +
       (pool.closes_at ? '<p class="settings-note">Closes ' + new Date(pool.closes_at).toLocaleString() + "</p>" : "") +
       '<p class="settings-note">Status: ' + pool.status + "</p>" +
       "<ul style=\"margin-top:0.5rem;\">" +
@@ -364,6 +388,14 @@
     if (pool.status === "closed" && pool.chat_thread_id) {
       html += '<a href="thread.html?id=' + encodeURIComponent(pool.chat_thread_id) + '" class="btn btn-primary btn-sm" style="margin-top:0.75rem;">Go to group chat</a>';
     }
+    if (pool.status === "closed" && isOrganizer) {
+      html += '<div class="form-field" style="margin-top:0.75rem;">' +
+        '<label for="pool-logistics-input">Logistics notes <span class="hint">(pickup/shipping details for the group)</span></label>' +
+        '<textarea id="pool-logistics-input">' + escapeHtml(pool.logistics_notes || "") + "</textarea>" +
+        '<button type="button" class="btn btn-outline btn-sm" id="pool-logistics-save-btn" style="margin-top:0.4rem;">Save logistics notes</button>' +
+        '<p class="login-error" id="pool-logistics-error" hidden></p>' +
+        "</div>";
+    }
     if (pool.status === "cancelled") {
       html += '<p class="settings-note">This Co-Op didn&rsquo;t reach the minimum of 2 participants and was cancelled.</p>';
     }
@@ -374,6 +406,24 @@
     }
 
     contentEl.innerHTML = html;
+
+    var logisticsSaveBtn = document.getElementById("pool-logistics-save-btn");
+    if (logisticsSaveBtn) {
+      logisticsSaveBtn.addEventListener("click", function () {
+        logisticsSaveBtn.disabled = true;
+        var notes = document.getElementById("pool-logistics-input").value.trim();
+        sb.rpc("update_pooling_logistics_notes", { p_pooling_thread_id: poolId, p_notes: notes || null }).then(function (res) {
+          logisticsSaveBtn.disabled = false;
+          if (res.error) {
+            var errEl = document.getElementById("pool-logistics-error");
+            errEl.textContent = res.error.message;
+            errEl.hidden = false;
+            return;
+          }
+          pool.logistics_notes = notes || null;
+        });
+      });
+    }
 
     var joinBtn = document.getElementById("pool-join-btn");
     if (joinBtn) {
@@ -543,6 +593,17 @@
     document.getElementById("pooling-sort-select").addEventListener("change", function (e) {
       filterState.sort = e.target.value;
       renderPoolList();
+    });
+
+    document.getElementById("pooling-list").addEventListener("click", function (e) {
+      var toggleBtn = e.target.closest('[data-action="toggle-expand"]');
+      if (!toggleBtn) return;
+      var card = toggleBtn.closest(".post-card");
+      var expanded = card.classList.toggle("is-expanded");
+      var descEl = card.querySelector(".post-body--clamped");
+      if (descEl) descEl.classList.toggle("post-body--clamped", !expanded);
+      card.querySelector(".post-expand-details").hidden = !expanded;
+      toggleBtn.textContent = expanded ? "Show less" : "See full details";
     });
 
   });

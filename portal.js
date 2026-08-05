@@ -118,7 +118,7 @@
   async function fetchDealPosts() {
     var res = await sb
       .from("rfp_posts")
-      .select("id, post_type, category, scope, budget_range, deadline, body, status, created_at, author_id, image_url, profiles(org_name, contact_name, category)")
+      .select("id, post_type, category, scope, moq, budget_range, deadline, material_spec, certifications, body, status, created_at, author_id, image_url, profiles(org_name, contact_name, category)")
       .order("created_at", { ascending: false });
     if (res.error) {
       console.error(res.error);
@@ -130,8 +130,16 @@
   function dealPostHtml(post) {
     var author = post.profiles || {};
     var authorName = author.org_name || author.contact_name || "Member";
-    var details = [post.category, post.scope, post.budget_range, post.deadline].filter(Boolean).join(" &middot; ");
+    var quickDetails = [post.category, post.scope, post.budget_range].filter(Boolean).join(" &middot; ");
     var authorLink = post.author_id === profile.id ? "profile.html" : "profile.html?id=" + encodeURIComponent(post.author_id);
+    var isOwner = post.author_id === profile.id;
+
+    var fullDetails = [
+      post.moq ? "MOQ: " + escapeHtml(post.moq) : null,
+      post.deadline ? "Deadline: " + escapeHtml(post.deadline) : null,
+      post.material_spec ? "Material: " + escapeHtml(post.material_spec) : null,
+      post.certifications ? "Certifications: " + escapeHtml(post.certifications) : null,
+    ].filter(Boolean);
 
     return (
       '<article class="post-card is-exchange" data-id="' + post.id + '">' +
@@ -144,12 +152,18 @@
       "<span>&middot;</span><span>" + responseCountLabel(post.id) + "</span></div>" +
       "</div></div>" +
       (post.image_url ? '<img class="post-attachment-img" src="' + escapeHtml(post.image_url) + '" alt="" loading="lazy">' : "") +
-      '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
-      '<p class="settings-note">' + (details || "No additional details") + " &mdash; " + post.status + "</p>" +
+      '<p class="post-body post-body--clamped">' + escapeHtml(post.body) + "</p>" +
+      '<p class="settings-note">' + (quickDetails || "No additional details") + " &mdash; " + post.status + "</p>" +
+      '<div class="post-expand-details" hidden>' +
+      (fullDetails.length ? '<ul class="post-detail-list">' + fullDetails.map(function (d) { return "<li>" + d + "</li>"; }).join("") + "</ul>" : "") +
+      "</div>" +
       '<div class="post-actions">' +
-      (isFreeTier()
-        ? '<span class="settings-note">Upgrade to a paid plan to respond.</span>'
-        : '<button type="button" class="btn btn-outline btn-sm" data-action="respond" data-id="' + post.id + '">Respond</button>') +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="toggle-expand">See full details</button>' +
+      (isOwner && post.status === "open"
+        ? '<button type="button" class="btn btn-outline btn-sm" data-action="mark-fulfilled" data-id="' + post.id + '">Mark Fulfilled</button>'
+        : isFreeTier()
+          ? '<span class="settings-note">Upgrade to a paid plan to respond.</span>'
+          : '<button type="button" class="btn btn-outline btn-sm" data-action="respond" data-id="' + post.id + '">Respond</button>') +
       "</div>" +
       "</article>"
     );
@@ -220,6 +234,9 @@
     var textarea = document.getElementById("respond-textarea");
     var errorEl = document.getElementById("respond-error");
     textarea.value = "";
+    document.getElementById("respond-quote-price").value = "";
+    document.getElementById("respond-quote-moq").value = "";
+    document.getElementById("respond-quote-lead-time").value = "";
     errorEl.hidden = true;
     document.getElementById("respond-modal-backdrop").classList.add("is-open");
     document.addEventListener("keydown", onRespondModalKeydown);
@@ -232,31 +249,49 @@
     document.removeEventListener("keydown", onRespondModalKeydown);
   }
 
-  async function submitRespond() {
-    var textarea = document.getElementById("respond-textarea");
-    var errorEl = document.getElementById("respond-error");
-    var body = textarea.value.trim();
-    if (!body || !respondPostId) return;
-    errorEl.hidden = true;
-
-    var form = document.getElementById("respond-form");
-    var submitBtn = form.querySelector('button[type="submit"]');
+  // Creating the thread + adding both participants + the first message all
+  // happens atomically server-side — a thread has no way to satisfy its own
+  // "am I a participant" read policy until a thread_participants row
+  // exists, so building it up via separate client-side inserts can never
+  // work for the creator reading their own just-created thread back.
+  async function sendThreadResponse(body, quotePrice, quoteMoq, quoteLeadTime, submitBtn, errorEl) {
     submitBtn.disabled = true;
-
-    // Creating the thread + adding both participants + the first message all
-    // happens atomically server-side — a thread has no way to satisfy its own
-    // "am I a participant" read policy until a thread_participants row
-    // exists, so building it up via separate client-side inserts can never
-    // work for the creator reading their own just-created thread back.
-    var res = await sb.rpc("start_rfp_thread", { p_rfp_post_id: respondPostId, p_initial_message: body });
+    var res = await sb.rpc("start_rfp_thread", {
+      p_rfp_post_id: respondPostId, p_initial_message: body,
+      p_quote_price: quotePrice || null, p_quote_moq: quoteMoq || null, p_quote_lead_time: quoteLeadTime || null,
+    });
     submitBtn.disabled = false;
     if (res.error) {
       errorEl.textContent = res.error.message;
       errorEl.hidden = false;
       return;
     }
-
     window.location.href = "thread.html?id=" + encodeURIComponent(res.data);
+  }
+
+  async function submitRespond() {
+    var textarea = document.getElementById("respond-textarea");
+    var errorEl = document.getElementById("respond-error");
+    var body = textarea.value.trim();
+    if (!body || !respondPostId) return;
+    errorEl.hidden = true;
+    var form = document.getElementById("respond-form");
+    var submitBtn = form.querySelector('button[type="submit"]');
+    await sendThreadResponse(
+      body,
+      document.getElementById("respond-quote-price").value.trim(),
+      document.getElementById("respond-quote-moq").value.trim(),
+      document.getElementById("respond-quote-lead-time").value.trim(),
+      submitBtn, errorEl
+    );
+  }
+
+  async function submitSampleRequest() {
+    var errorEl = document.getElementById("respond-error");
+    if (!respondPostId) return;
+    errorEl.hidden = true;
+    var sampleBtn = document.getElementById("respond-sample-btn");
+    await sendThreadResponse("Requesting a sample of this material.", null, null, null, sampleBtn, errorEl);
   }
 
   function renderComposerAvatar() {
@@ -340,8 +375,11 @@
         post_type: "sourcing",
         category: document.getElementById("composer-category").value.trim() || null,
         scope: document.getElementById("composer-scope").value.trim() || null,
+        moq: document.getElementById("composer-moq").value.trim() || null,
         budget_range: document.getElementById("composer-budget").value.trim() || null,
         deadline: document.getElementById("composer-deadline").value || null,
+        material_spec: document.getElementById("composer-material-spec").value.trim() || null,
+        certifications: document.getElementById("composer-certifications").value.trim() || null,
         body: body,
         image_url: imageUrl,
       }).then(function (res) {
@@ -372,8 +410,27 @@
     var feedEl = document.getElementById("portal-feed-list");
     feedEl.addEventListener("click", function (e) {
       var respondBtn = e.target.closest('[data-action="respond"]');
-      if (!respondBtn) return;
-      openRespondModal(respondBtn.dataset.id);
+      if (respondBtn) { openRespondModal(respondBtn.dataset.id); return; }
+
+      var fulfillBtn = e.target.closest('[data-action="mark-fulfilled"]');
+      if (fulfillBtn) {
+        fulfillBtn.disabled = true;
+        sb.from("rfp_posts").update({ status: "fulfilled" }).eq("id", fulfillBtn.dataset.id).then(function (res) {
+          if (res.error) { fulfillBtn.disabled = false; return; }
+          fetchDealPosts().then(function (posts) { dealPosts = posts; renderFeed(); renderRecent(); });
+        });
+        return;
+      }
+
+      var toggleBtn = e.target.closest('[data-action="toggle-expand"]');
+      if (toggleBtn) {
+        var card = toggleBtn.closest(".post-card");
+        var expanded = card.classList.toggle("is-expanded");
+        card.querySelector(".post-body").classList.toggle("post-body--clamped", !expanded);
+        card.querySelector(".post-expand-details").hidden = !expanded;
+        toggleBtn.textContent = expanded ? "Show less" : "See full details";
+        return;
+      }
     });
 
     document.getElementById("respond-modal-close").addEventListener("click", closeRespondModal);
@@ -385,6 +442,7 @@
       e.preventDefault();
       submitRespond();
     });
+    document.getElementById("respond-sample-btn").addEventListener("click", submitSampleRequest);
 
     document.getElementById("exchange-recent-list").addEventListener("click", function (e) {
       var link = e.target.closest("[data-scroll-to]");

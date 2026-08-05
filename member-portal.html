@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=49">
+<link rel="stylesheet" href="styles.css?v=50">
 </head>
 <body class="portal-page">
 
@@ -113,12 +113,24 @@
               <input type="text" id="composer-scope" placeholder="e.g. 200-unit run">
             </div>
             <div class="form-field">
+              <label for="composer-moq">MOQ</label>
+              <input type="text" id="composer-moq" placeholder="e.g. 500 yards">
+            </div>
+            <div class="form-field">
               <label for="composer-budget">Budget range</label>
               <input type="text" id="composer-budget" placeholder="e.g. $2k&ndash;$4k">
             </div>
             <div class="form-field">
               <label for="composer-deadline">Deadline</label>
               <input type="date" id="composer-deadline">
+            </div>
+            <div class="form-field full">
+              <label for="composer-material-spec">Material spec</label>
+              <input type="text" id="composer-material-spec" placeholder="e.g. 100% GOTS-certified organic cotton, 200gsm">
+            </div>
+            <div class="form-field">
+              <label for="composer-certifications">Certifications needed</label>
+              <input type="text" id="composer-certifications" placeholder="e.g. GOTS, OEKO-TEX">
             </div>
           </div>
           <div class="composer-attach">
@@ -159,7 +171,7 @@
           <p>Post a sourcing need or an open deal, and respond to other members' listings — everything in one place.</p>
         </div>
         <div class="app-context-section app-context-section--card app-context-section--exchange">
-          <p class="app-context-kicker">Trending</p>
+          <p class="app-context-kicker"><strong>Trending</strong></p>
           <div id="exchange-recent-list" class="app-context-trending-list"></div>
         </div>
       </aside>
@@ -177,12 +189,27 @@
       <p class="modal-sub">Your message starts a private thread with the poster — you'll find it under Messages afterward.</p>
     </div>
     <form id="respond-form">
+      <div class="form-grid" style="margin-bottom:0.75rem;">
+        <div class="form-field">
+          <label for="respond-quote-price">Price / unit <span class="hint">(optional)</span></label>
+          <input type="text" id="respond-quote-price" placeholder="e.g. $4.50/yard">
+        </div>
+        <div class="form-field">
+          <label for="respond-quote-moq">MOQ you can offer <span class="hint">(optional)</span></label>
+          <input type="text" id="respond-quote-moq" placeholder="e.g. 300 yards">
+        </div>
+        <div class="form-field full">
+          <label for="respond-quote-lead-time">Lead time <span class="hint">(optional)</span></label>
+          <input type="text" id="respond-quote-lead-time" placeholder="e.g. 3&ndash;4 weeks">
+        </div>
+      </div>
       <div class="form-field" style="margin-bottom:0.75rem;">
         <label for="respond-textarea" class="sr-only">Your response</label>
         <textarea id="respond-textarea" placeholder="Write your response&hellip;" required></textarea>
       </div>
       <p class="login-error" id="respond-error" hidden></p>
-      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline btn-sm" id="respond-sample-btn">Request Sample Instead</button>
         <button type="button" class="btn btn-outline btn-sm" id="respond-cancel-btn">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">Send</button>
       </div>
@@ -198,6 +225,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
 <script src="shell.js?v=3"></script>
-<script src="portal.js?v=16"></script>
+<script src="portal.js?v=17"></script>
 </body>
 </html>
