@@ -13,6 +13,8 @@
   var NOTIFICATION_META = {
     thread_expiring_soon: function (p) { return { label: "A conversation is about to expire from inactivity", href: "thread.html?id=" + p.thread_id }; },
     intro_request_reminder: function () { return { label: "You have a pending introduction request waiting on you", href: "intros.html" }; },
+    intro_request_received: function () { return { label: "Someone requested an introduction to you", href: "intros.html" }; },
+    intro_request_accepted: function (p) { return { label: "Your introduction request was accepted", href: "thread.html?id=" + p.thread_id }; },
     new_rfp_match: function () { return { label: "A new post matching your category was posted to The Exchange", href: "member-portal.html?view=deal" }; },
     rfp_cap_warning: function (p) { return { label: "You have " + p.posts_remaining + " Exchange posts left this month", href: "member-portal.html?view=deal" }; },
     pool_new_participant: function (p) { return { label: "Someone requested to join a Co-Op you organized", href: "pooling.html?id=" + p.pooling_thread_id }; },

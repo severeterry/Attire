@@ -169,7 +169,7 @@
     }).join("");
     grid.hidden = filtered.length === 0;
     empty.hidden = filtered.length !== 0;
-    if (upgradeNote) upgradeNote.hidden = eligible || filtered.length === 0;
+    if (upgradeNote) upgradeNote.hidden = eligible;
   }
 
   function setupIntroMemberFilters() {
@@ -226,6 +226,9 @@
       '<p class="post-author-name">' + escapeHtml(otherName || "Member") + "</p>",
       '<p class="settings-note">' + (isRequestor ? "You requested" : "They requested") + " &mdash; " + intro.status + "</p>",
     ];
+    if (intro.status === "expired") {
+      pieces.push('<p class="settings-note">' + (isRequestor ? "They" : "You") + " didn&rsquo;t respond within 14 days, so this request lapsed.</p>");
+    }
 
     if (intro.status === "accepted" && isRequestor) {
       pieces.push('<div id="contact-' + intro.id + '"><button type="button" class="btn btn-outline btn-sm" data-action="reveal" data-id="' + intro.id + '">Show contact info</button></div>');
@@ -276,6 +279,38 @@
     }
     container.innerHTML = cards.join("");
     renderActiveIntroRequests();
+  }
+
+  // Requests I've sent that are still waiting on the other person — the
+  // only place these were ever visible before was the "Request sent" text
+  // buried on that member's card in the browse grid above, with no way to
+  // withdraw one if you changed your mind.
+  async function loadOutgoing() {
+    var res = await sb
+      .from("intro_requests")
+      .select("id, note, created_at, requestee:requestee_id(id, org_name, contact_name)")
+      .eq("requestor_id", profile.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    var container = document.getElementById("intros-outgoing");
+    if (res.error || !res.data.length) {
+      container.innerHTML = '<p class="settings-note">Nothing sent and waiting.</p>';
+      return;
+    }
+
+    container.innerHTML = res.data.map(function (intro) {
+      var name = intro.requestee ? (intro.requestee.org_name || intro.requestee.contact_name || "Member") : "Member";
+      return (
+        '<article class="post-card" data-id="' + intro.id + '">' +
+        '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
+        (intro.note ? '<p class="post-body">' + escapeHtml(intro.note) + "</p>" : "") +
+        '<p class="settings-note">Sent ' + relativeTime(new Date(intro.created_at).getTime()) + " ago &mdash; awaiting reply.</p>" +
+        '<button type="button" class="btn btn-outline btn-sm" data-action="withdraw" data-id="' + intro.id + '">Withdraw request</button>' +
+        '<p class="login-error" data-error-for="' + intro.id + '" hidden></p>' +
+        "</article>"
+      );
+    }).join("");
   }
 
   // ---- Sidebar "Active Requests" widget + popup — a compact, always-visible
@@ -414,6 +449,12 @@
     document.getElementById("thread-popup-backdrop").classList.add("is-open");
     document.getElementById("thread-popup-members-list").hidden = true;
 
+    sb.from("threads").select("status").eq("id", threadId).maybeSingle().then(function (statusRes) {
+      var expired = statusRes.data && statusRes.data.status === "expired";
+      document.getElementById("thread-popup-compose-form").hidden = expired;
+      document.getElementById("thread-popup-expired-note").hidden = !expired;
+    });
+
     var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name, category, avatar_url)").eq("thread_id", threadId);
     var participants = partRes.data || [];
     threadPopupParticipants = {};
@@ -531,6 +572,7 @@
     renderIntroMembers();
 
     await loadIncoming();
+    await loadOutgoing();
     await loadResolved();
 
     var membersGrid = document.getElementById("intro-members-grid");
@@ -588,16 +630,20 @@
         }
         myOutgoingRequests[id] = "pending";
         renderIntroMembers();
+        loadOutgoing();
       });
     });
 
     function resolveIntroRequest(introId, decision, errorEl) {
       // Accepting creates a real message thread (accept_intro_request RPC),
       // matching how Exchange/Co-Op turn an accepted match into a real
-      // conversation — decline stays a plain status update, no thread needed.
+      // conversation. Both accept and decline go through narrow RPCs, not a
+      // raw client update — intro_requests has no general UPDATE policy
+      // (closes a real hole where either party could otherwise self-accept
+      // their own request or overwrite the other party's feedback field).
       var op = decision === "accepted"
         ? sb.rpc("accept_intro_request", { p_intro_id: introId })
-        : sb.from("intro_requests").update({ status: decision, resolved_at: new Date().toISOString() }).eq("id", introId).eq("status", "pending");
+        : sb.rpc("decline_intro_request", { p_intro_id: introId });
       return op.then(function (res) {
         if (res.error) {
           if (errorEl) { errorEl.textContent = res.error.message; errorEl.hidden = false; }
@@ -685,6 +731,24 @@
       renderActiveIntroThreads();
     });
 
+    document.getElementById("intros-outgoing").addEventListener("click", function (e) {
+      var btn = e.target.closest('[data-action="withdraw"]');
+      if (!btn) return;
+      var introId = btn.dataset.id;
+      btn.disabled = true;
+      sb.from("intro_requests").delete().eq("id", introId).eq("status", "pending").then(async function (res) {
+        if (res.error) {
+          var errEl = document.querySelector('#intros-outgoing [data-error-for="' + introId + '"]');
+          if (errEl) { errEl.textContent = res.error.message; errEl.hidden = false; }
+          btn.disabled = false;
+          return;
+        }
+        await fetchMyOutgoingIntros();
+        loadOutgoing();
+        renderIntroMembers();
+      });
+    });
+
     document.getElementById("intros-resolved").addEventListener("click", function (e) {
       var btn = e.target.closest("button[data-action]");
       if (!btn) return;
@@ -706,13 +770,7 @@
 
       if (btn.dataset.action === "feedback-yes" || btn.dataset.action === "feedback-no") {
         var goodMatch = btn.dataset.action === "feedback-yes";
-        sb.from("intro_requests").select("requestor_id, requestee_id").eq("id", introId).single().then(function (introRes) {
-          if (introRes.error || !introRes.data) return;
-          var field = introRes.data.requestor_id === profile.id ? "requestor_good_match" : "requestee_good_match";
-          var patch = {};
-          patch[field] = goodMatch;
-          sb.from("intro_requests").update(patch).eq("id", introId).then(function () { loadResolved(); });
-        });
+        sb.rpc("submit_intro_feedback", { p_intro_id: introId, p_good_match: goodMatch }).then(function () { loadResolved(); });
       }
     });
   });
