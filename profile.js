@@ -162,8 +162,8 @@
   }
 
   function renderPlanManagement() {
-    var tier = profile.tier || "individual";
-    var planNames = { free: "Free Plan", individual: "Individual / Affiliate", organization: "Organization Membership" };
+    var tier = profile.tier || "individual_affiliate";
+    var planNames = { free: "Free Plan", individual_affiliate: "Individual / Affiliate", organization: "Organization Membership" };
     var billing = profile.billing;
     var hasPrepay = !!(billing && billing.termMonths > 1);
 
@@ -442,7 +442,7 @@
     var paymentSuccess = document.getElementById("payment-modal-success");
 
     document.getElementById("upgrade-plan-btn").addEventListener("click", function () {
-      var suggested = (profile.tier || "individual") === "individual" ? "organization" : "individual";
+      var suggested = (profile.tier || "individual_affiliate") === "individual_affiliate" ? "organization" : "individual_affiliate";
       document.querySelectorAll('input[name="modal-plan"]').forEach(function (input) {
         input.checked = input.value === suggested;
       });

@@ -53,6 +53,8 @@
       settings: row.settings || {},
       accountCredit: row.account_credit || 0,
       isAdmin: row.is_admin || false,
+      freeUntil: row.free_until || null,
+      isFoundingCohort: row.is_founding_cohort || false,
       email: contact ? contact.email : "",
       phone: contact ? contact.phone : "",
     };
@@ -92,11 +94,15 @@
     return res.error ? res.error.message : null;
   }
 
-  function stashPendingProfile(fields, billing) {
-    try { sessionStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify({ fields: fields, billing: billing })); } catch (e) {}
+  function stashPendingProfile(fields, billing, freeUntil, isFoundingCohort) {
+    try {
+      sessionStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify({
+        fields: fields, billing: billing, freeUntil: freeUntil, isFoundingCohort: isFoundingCohort,
+      }));
+    } catch (e) {}
   }
 
-  async function createProfileRow(userId, fields, billing) {
+  async function createProfileRow(userId, fields, billing, freeUntil, isFoundingCohort) {
     billing.startedAt = billing.startedAt || Date.now();
     var profileRes = await sb.from("profiles").insert({
       id: userId,
@@ -109,6 +115,8 @@
       tier: billing.tier,
       billing: billing,
       intro_opt_in: !!fields.introOptIn,
+      free_until: freeUntil || null,
+      is_founding_cohort: !!isFoundingCohort,
     });
     if (profileRes.error) return profileRes.error.message;
 
@@ -120,9 +128,9 @@
   }
 
   // Call right after supabase.auth.signUp() succeeds.
-  async function completeSignup(userId, session, fields, billing) {
-    if (session) return await createProfileRow(userId, fields, billing);
-    stashPendingProfile(fields, billing);
+  async function completeSignup(userId, session, fields, billing, freeUntil, isFoundingCohort) {
+    if (session) return await createProfileRow(userId, fields, billing, freeUntil, isFoundingCohort);
+    stashPendingProfile(fields, billing, freeUntil, isFoundingCohort);
     return null;
   }
 
@@ -138,7 +146,7 @@
     }
 
     var pending = JSON.parse(raw);
-    await createProfileRow(userId, pending.fields, pending.billing);
+    await createProfileRow(userId, pending.fields, pending.billing, pending.freeUntil, pending.isFoundingCohort);
     try { sessionStorage.removeItem(PENDING_PROFILE_KEY); } catch (e) {}
   }
 

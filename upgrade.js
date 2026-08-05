@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var PRICES = { individual: 15, organization: 18 };
+  var PRICES = { individual_affiliate: 15, organization: 18 };
 
   document.addEventListener("DOMContentLoaded", async function () {
     if (!window.AttireAuth) return;
@@ -25,14 +25,14 @@
 
     function selectedPlan() {
       var checked = document.querySelector('input[name="plan"]:checked');
-      return checked ? checked.value : "individual";
+      return checked ? checked.value : "individual_affiliate";
     }
 
     function updateAmount() {
       amountEl.textContent = "$" + PRICES[selectedPlan()];
     }
 
-    if (requestedPlan === "organization" || requestedPlan === "individual") {
+    if (requestedPlan === "organization" || requestedPlan === "individual_affiliate") {
       planInputs.forEach(function (input) { input.checked = input.value === requestedPlan; });
     }
     updateAmount();
@@ -62,7 +62,13 @@
       submitBtn.textContent = "Processing…";
 
       setTimeout(function () {
-        window.AttireAuth.updateProfileFields(profile.id, { tier: plan }).then(function () {
+        window.supabaseClient.rpc("change_membership_tier", { p_new_tier: plan, p_billing: profile.billing || null }).then(function (res) {
+          if (res.error) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Confirm & Upgrade";
+            window.alert(res.error.message);
+            return;
+          }
           form.hidden = true;
           document.getElementById("plan-choice-card").hidden = true;
           document.getElementById("payment-success-note").textContent =

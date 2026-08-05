@@ -6,6 +6,7 @@
   var filterState = "pending";
   var candidates = [];
   var candidatesFilterState = "pending";
+  var flaggedListings = [];
 
   function escapeHtml(str) {
     return String(str)
@@ -46,7 +47,10 @@
     var actions = "";
     if (app.status === "pending") {
       actions =
-        '<div style="display:flex; gap:0.5rem; margin-top:0.75rem;">' +
+        '<label class="settings-note" style="display:flex; align-items:center; gap:0.4rem; margin-top:0.75rem; cursor:pointer;">' +
+        '<input type="checkbox" data-founding-cohort-for="' + app.id + '"> Founding cohort (free/locked rate for 2 years from signup)' +
+        "</label>" +
+        '<div style="display:flex; gap:0.5rem; margin-top:0.5rem;">' +
         '<button type="button" class="btn btn-primary btn-sm" data-action="approve" data-id="' + app.id + '">Approve</button>' +
         '<button type="button" class="btn btn-outline btn-sm" data-action="reject" data-id="' + app.id + '">Reject</button>' +
         "</div>" +
@@ -54,6 +58,7 @@
     } else {
       var statusLabel = app.status === "approved" ? "Approved" : "Rejected";
       actions = '<p class="settings-note" style="font-weight:700; margin-top:0.5rem;">' + statusLabel +
+        (app.is_founding_cohort ? " &mdash; founding cohort" : "") +
         (app.reviewed_at ? " " + relativeTime(new Date(app.reviewed_at).getTime()) + " ago" : "") + "</p>";
     }
 
@@ -172,6 +177,47 @@
     renderCandidatesList();
   }
 
+  // ---- Flagged directory listings (annual re-verification queue) ----
+
+  async function fetchFlaggedListings() {
+    var res = await sb.from("directory_listings").select("*").eq("flagged_for_review", true).order("flagged_at", { ascending: false });
+    if (res.error) { console.error(res.error); return []; }
+    return res.data;
+  }
+
+  function flaggedCardHtml(l) {
+    return (
+      '<div class="post-card">' +
+      '<div class="post-head" style="justify-content:space-between;">' +
+      '<div><p class="post-author-name">' + escapeHtml(l.name) + "</p>" +
+      '<div class="post-meta-row"><span>' + escapeHtml(l.borough || "Borough unknown") + "</span></div>" +
+      "</div>" +
+      '<span class="cat-badge" data-cat="' + l.category + '">' + escapeHtml(labelForCategory(l.category)) + "</span>" +
+      "</div>" +
+      '<p class="post-body">' + escapeHtml(l.flag_reason || "No reason given.") + "</p>" +
+      '<p class="settings-note">Flagged ' + relativeTime(new Date(l.flagged_at).getTime()) + " ago</p>" +
+      '<div style="display:flex; gap:0.5rem; margin-top:0.75rem;">' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="clear-flag" data-id="' + l.id + '">Clear flag</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="unverify" data-id="' + l.id + '">Mark unverified</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="remove-listing" data-id="' + l.id + '">Remove listing</button>' +
+      "</div>" +
+      '<p class="login-error" data-flag-error-for="' + l.id + '" hidden></p>' +
+      "</div>"
+    );
+  }
+
+  function renderFlaggedList() {
+    var listEl = document.getElementById("flagged-list");
+    var emptyEl = document.getElementById("flagged-empty");
+    listEl.innerHTML = flaggedListings.length ? flaggedListings.map(flaggedCardHtml).join("") : "";
+    emptyEl.hidden = flaggedListings.length !== 0;
+  }
+
+  async function reloadFlagged() {
+    flaggedListings = await fetchFlaggedListings();
+    renderFlaggedList();
+  }
+
   document.addEventListener("DOMContentLoaded", async function () {
     if (!window.AttireAuth) return;
     var session = await window.AttireAuth.getSession();
@@ -201,8 +247,13 @@
 
       btn.disabled = true;
       var newStatus = approveBtn ? "approved" : "rejected";
+      var update = { status: newStatus, reviewed_at: new Date().toISOString() };
+      if (approveBtn) {
+        var cohortCheckbox = document.querySelector('[data-founding-cohort-for="' + btn.dataset.id + '"]');
+        update.is_founding_cohort = !!(cohortCheckbox && cohortCheckbox.checked);
+      }
       sb.from("membership_applications")
-        .update({ status: newStatus, reviewed_at: new Date().toISOString() })
+        .update(update)
         .eq("id", btn.dataset.id)
         .then(function (res) {
           if (res.error) {
@@ -222,7 +273,40 @@
         tabButtons.forEach(function (b) { b.setAttribute("aria-pressed", b === tabBtn ? "true" : "false"); });
         document.getElementById("tab-applications").hidden = tabBtn.dataset.tabBtn !== "applications";
         document.getElementById("tab-candidates").hidden = tabBtn.dataset.tabBtn !== "candidates";
+        document.getElementById("tab-flagged").hidden = tabBtn.dataset.tabBtn !== "flagged";
         if (tabBtn.dataset.tabBtn === "candidates" && !candidates.length) reloadCandidates();
+        if (tabBtn.dataset.tabBtn === "flagged") reloadFlagged();
+      });
+    });
+
+    document.getElementById("flagged-list").addEventListener("click", function (e) {
+      var clearBtn = e.target.closest('[data-action="clear-flag"]');
+      var unverifyBtn = e.target.closest('[data-action="unverify"]');
+      var removeBtn = e.target.closest('[data-action="remove-listing"]');
+      var btn = clearBtn || unverifyBtn || removeBtn;
+      if (!btn) return;
+
+      btn.disabled = true;
+      var errEl = document.querySelector('[data-flag-error-for="' + btn.dataset.id + '"]');
+      var query;
+      if (removeBtn) {
+        query = sb.from("directory_listings").delete().eq("id", btn.dataset.id);
+      } else if (unverifyBtn) {
+        query = sb.from("directory_listings")
+          .update({ verified: false, flagged_for_review: false, flag_reason: null, flagged_at: null })
+          .eq("id", btn.dataset.id);
+      } else {
+        query = sb.from("directory_listings")
+          .update({ flagged_for_review: false, flag_reason: null, flagged_at: null })
+          .eq("id", btn.dataset.id);
+      }
+      query.then(function (res) {
+        if (res.error) {
+          if (errEl) { errEl.textContent = res.error.message; errEl.hidden = false; }
+          btn.disabled = false;
+          return;
+        }
+        reloadFlagged();
       });
     });
 

@@ -2,11 +2,12 @@
   "use strict";
 
   var FREE_MONTHS = 6;
+  var FOUNDING_COHORT_YEARS = 2;
   var PLAN_RATES = {
-    individual: { 1: 15, 6: 14, 12: 12, 18: 11, 24: 10 },
+    individual_affiliate: { 1: 15, 6: 14, 12: 12, 18: 11, 24: 10 },
     organization: { 1: 18, 6: 16, 12: 14, 18: 13, 24: 12 },
   };
-  var PLAN_LABELS = { individual: "Individual / Affiliate", organization: "Organization Membership" };
+  var PLAN_LABELS = { individual_affiliate: "Individual / Affiliate", organization: "Organization Membership" };
 
   var form = document.getElementById("membership-form");
   var success = document.getElementById("form-success");
@@ -62,7 +63,7 @@
 
     function selectedPlan() {
       var checked = planSetup.querySelector('input[name="signup-plan"]:checked');
-      return checked ? checked.value : "individual";
+      return checked ? checked.value : "individual_affiliate";
     }
     function selectedTerm() {
       var checked = planSetup.querySelector('input[name="signup-term"]:checked');
@@ -153,10 +154,20 @@
       pitch: approvedApplication.pitch || "",
     };
     var billing = pendingBilling || {
-      tier: "individual", tierLabel: PLAN_LABELS.individual, termMonths: 1,
-      monthlyRate: PLAN_RATES.individual[1], totalDue: PLAN_RATES.individual[1],
+      tier: "individual_affiliate", tierLabel: PLAN_LABELS.individual_affiliate, termMonths: 1,
+      monthlyRate: PLAN_RATES.individual_affiliate[1], totalDue: PLAN_RATES.individual_affiliate[1],
       freeMonths: FREE_MONTHS, status: "trial",
     };
+
+    var isFoundingCohort = !!(approvedApplication && approvedApplication.is_founding_cohort);
+    var freeUntilDate = new Date();
+    if (isFoundingCohort) {
+      freeUntilDate.setFullYear(freeUntilDate.getFullYear() + FOUNDING_COHORT_YEARS);
+      billing.freeMonths = FOUNDING_COHORT_YEARS * 12;
+    } else {
+      freeUntilDate.setMonth(freeUntilDate.getMonth() + FREE_MONTHS);
+    }
+    var freeUntil = freeUntilDate.toISOString();
 
     if (!window.AttireAuth || !window.supabaseClient) return;
 
@@ -181,7 +192,7 @@
       var userId = res.data.user.id;
       var session = res.data.session;
 
-      window.AttireAuth.completeSignup(userId, session, fields, billing).then(function (profileErr) {
+      window.AttireAuth.completeSignup(userId, session, fields, billing, freeUntil, isFoundingCohort).then(function (profileErr) {
         resetButton();
 
         if (profileErr) {

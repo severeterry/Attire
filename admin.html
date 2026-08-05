@@ -34,6 +34,7 @@
           <div class="pill-row" style="margin-bottom:1.25rem;">
             <button type="button" class="cat-pill" data-tab-btn="applications" aria-pressed="true">Membership Applications</button>
             <button type="button" class="cat-pill" data-tab-btn="candidates" aria-pressed="false">Directory Candidates</button>
+            <button type="button" class="cat-pill" data-tab-btn="flagged" aria-pressed="false">Flagged Listings</button>
           </div>
 
           <div id="tab-applications">
@@ -65,12 +66,22 @@
               </select>
             </div>
 
-            <p class="settings-note" style="margin-bottom:1rem;">No automated sweep is running yet — this queue is empty until that's set up. Approving a candidate here publishes it straight to the live directory as unverified.</p>
+            <p class="settings-note" style="margin-bottom:1rem;">A scheduled agent discovers new candidates monthly. Approving a candidate here publishes it straight to the live directory as unverified.</p>
 
             <div id="candidates-list" style="display:flex; flex-direction:column; gap:1rem;"></div>
             <div class="empty-state" id="candidates-empty" hidden>
               <h3>Nothing here</h3>
               <p>No candidates match this filter.</p>
+            </div>
+          </div>
+
+          <div id="tab-flagged" hidden>
+            <p class="settings-note" style="margin-bottom:1rem;">A scheduled agent re-verifies every live directory listing once a year and flags anything it can no longer confirm — nothing changes live automatically.</p>
+
+            <div id="flagged-list" style="display:flex; flex-direction:column; gap:1rem;"></div>
+            <div class="empty-state" id="flagged-empty" hidden>
+              <h3>Nothing flagged</h3>
+              <p>No listings are currently flagged for review.</p>
             </div>
           </div>
         </div>
@@ -86,7 +97,7 @@
 <script src="script.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
-<script src="auth.js?v=5"></script>
-<script src="admin.js?v=3"></script>
+<script src="auth.js?v=6"></script>
+<script src="admin.js?v=4"></script>
 </body>
 </html>

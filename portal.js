@@ -210,7 +210,7 @@
   }
 
   function applyTierGates() {
-    var tier = profile.tier || "individual";
+    var tier = profile.tier || "individual_affiliate";
     var isFree = tier === "free";
     var composerCard = document.getElementById("composer-form");
     var composerLocked = document.getElementById("composer-locked");
@@ -229,7 +229,7 @@
   }
 
   function isFreeTier() {
-    return (profile.tier || "individual") === "free";
+    return (profile.tier || "individual_affiliate") === "free";
   }
 
   document.addEventListener("DOMContentLoaded", async function () {
