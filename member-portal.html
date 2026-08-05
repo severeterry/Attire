@@ -106,7 +106,14 @@
           <div class="form-grid" style="margin:0.75rem 0;">
             <div class="form-field">
               <label for="composer-category">Category</label>
-              <input type="text" id="composer-category" placeholder="e.g. cut-and-sew">
+              <select id="composer-category">
+                <option value="">Select a category&hellip;</option>
+                <option value="materials">Materials &amp; Making</option>
+                <option value="circularity">Circularity &amp; Disposal</option>
+                <option value="strategy">Strategy &amp; Expertise</option>
+                <option value="advocacy">Advocacy &amp; Community</option>
+                <option value="retail">Retail &amp; Creators</option>
+              </select>
             </div>
             <div class="form-field">
               <label for="composer-scope">Scope / quantity</label>
@@ -237,6 +244,7 @@
       </div>
     </div>
     <div class="thread-popup-body" id="thread-popup-body"></div>
+    <p class="settings-note" id="thread-popup-expired-note" hidden>This conversation expired after 14 days of inactivity and is now read-only.</p>
     <form class="thread-popup-compose" id="thread-popup-compose-form">
       <button type="button" class="icon-btn" id="thread-popup-attach-btn" aria-label="Attach image">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -255,7 +263,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
-<script src="shell.js?v=5"></script>
-<script src="portal.js?v=20"></script>
+<script src="shell.js?v=6"></script>
+<script src="portal.js?v=21"></script>
 </body>
 </html>

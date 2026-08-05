@@ -97,15 +97,30 @@
       var avatarEl = document.getElementById("thread-popup-avatar");
       var titleEl = document.getElementById("thread-identity-title");
       var pool = res.data;
-      if (!pool) {
-        titleEl.textContent = "Group Chat";
+      if (pool) {
+        var organizer = pool.profiles || {};
+        var organizerName = organizer.org_name || organizer.contact_name || "Organizer";
+        titleEl.textContent = pool.title;
+        if (organizer.category) headEl.setAttribute("data-cat", organizer.category);
+        avatarEl.outerHTML = avatarHtml(organizerName, organizer.category, "thread-popup-avatar", organizer.avatar_url).replace("<span", '<span id="thread-popup-avatar"');
         return;
       }
-      var organizer = pool.profiles || {};
-      var organizerName = organizer.org_name || organizer.contact_name || "Organizer";
-      titleEl.textContent = pool.title;
-      if (organizer.category) headEl.setAttribute("data-cat", organizer.category);
-      avatarEl.outerHTML = avatarHtml(organizerName, organizer.category, "thread-popup-avatar", organizer.avatar_url).replace("<span", '<span id="thread-popup-avatar"');
+
+      // Not a Co-Op group thread — Exchange, plain DM, and accepted-intro
+      // threads are all always exactly 2 people, so name the header after
+      // whichever participant isn't the viewer.
+      var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name, category, avatar_url)").eq("thread_id", threadId);
+      var participants = partRes.data || [];
+      var others = participants.filter(function (p) { return p.profile_id !== profile.id; });
+      if (others.length !== 1) {
+        titleEl.textContent = others.length > 1 ? "Group (" + participants.length + ")" : "Conversation";
+        return;
+      }
+      var other = others[0].profiles || {};
+      var otherName = other.org_name || other.contact_name || "Member";
+      titleEl.textContent = otherName;
+      if (other.category) headEl.setAttribute("data-cat", other.category);
+      avatarEl.outerHTML = avatarHtml(otherName, other.category, "thread-popup-avatar", other.avatar_url).replace("<span", '<span id="thread-popup-avatar"');
     }
 
     function markRead() {

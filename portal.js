@@ -141,6 +141,12 @@
     document.getElementById("thread-popup-backdrop").classList.add("is-open");
     document.getElementById("thread-popup-members-list").hidden = true;
 
+    sb.from("threads").select("status").eq("id", threadId).maybeSingle().then(function (statusRes) {
+      var expired = statusRes.data && statusRes.data.status === "expired";
+      document.getElementById("thread-popup-compose-form").hidden = expired;
+      document.getElementById("thread-popup-expired-note").hidden = !expired;
+    });
+
     var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name, category, avatar_url)").eq("thread_id", threadId);
     var participants = partRes.data || [];
     threadPopupParticipants = {};
@@ -280,10 +286,21 @@
     return res.data;
   }
 
+  function labelForCategory(cat) {
+    var map = {
+      materials: "Materials & Making",
+      circularity: "Circularity & Disposal",
+      strategy: "Strategy & Expertise",
+      advocacy: "Advocacy & Community",
+      retail: "Retail & Creators",
+    };
+    return map[cat] || cat;
+  }
+
   function dealPostHtml(post) {
     var author = post.profiles || {};
     var authorName = author.org_name || author.contact_name || "Member";
-    var quickDetails = [post.category, post.scope, post.budget_range].filter(Boolean).join(" &middot; ");
+    var quickDetails = [post.category ? labelForCategory(post.category) : null, post.scope, post.budget_range].filter(Boolean).join(" &middot; ");
     var authorLink = post.author_id === profile.id ? "profile.html" : "profile.html?id=" + encodeURIComponent(post.author_id);
     var isOwner = post.author_id === profile.id;
 
@@ -312,11 +329,16 @@
       "</div>" +
       '<div class="post-actions">' +
       '<button type="button" class="btn btn-outline btn-sm" data-action="toggle-expand">See full details</button>' +
-      (isOwner && post.status === "open"
-        ? '<button type="button" class="btn btn-outline btn-sm" data-action="mark-fulfilled" data-id="' + post.id + '">Mark Fulfilled</button>'
-        : isFreeTier()
-          ? '<span class="settings-note">Upgrade to a paid plan to respond.</span>'
-          : '<button type="button" class="btn btn-outline btn-sm" data-action="respond" data-id="' + post.id + '">Respond</button>') +
+      (isOwner
+        ? (post.status === "open"
+          ? '<button type="button" class="btn btn-outline btn-sm" data-action="mark-fulfilled" data-id="' + post.id + '">Mark Fulfilled</button>'
+          : "") +
+          '<button type="button" class="btn btn-outline btn-sm" data-action="delete-post" data-id="' + post.id + '">Delete</button>'
+        : post.status !== "open"
+          ? '<span class="settings-note">No longer available.</span>'
+          : isFreeTier()
+            ? '<span class="settings-note">Upgrade to a paid plan to respond.</span>'
+            : '<button type="button" class="btn btn-outline btn-sm" data-action="respond" data-id="' + post.id + '">Respond</button>') +
       "</div>" +
       "</article>"
     );
@@ -419,7 +441,9 @@
       errorEl.hidden = false;
       return;
     }
-    window.location.href = "thread.html?id=" + encodeURIComponent(res.data);
+    closeRespondModal();
+    await renderActiveExchangeThreads();
+    openThreadPopup(res.data);
   }
 
   async function submitRespond() {
@@ -571,6 +595,17 @@
         fulfillBtn.disabled = true;
         sb.from("rfp_posts").update({ status: "fulfilled" }).eq("id", fulfillBtn.dataset.id).then(function (res) {
           if (res.error) { fulfillBtn.disabled = false; return; }
+          fetchDealPosts().then(function (posts) { dealPosts = posts; renderFeed(); renderRecent(); });
+        });
+        return;
+      }
+
+      var deleteBtn = e.target.closest('[data-action="delete-post"]');
+      if (deleteBtn) {
+        if (!window.confirm("Delete this post? Any conversations it started will be kept, but the post itself can't be recovered.")) return;
+        deleteBtn.disabled = true;
+        sb.from("rfp_posts").delete().eq("id", deleteBtn.dataset.id).then(function (res) {
+          if (res.error) { deleteBtn.disabled = false; window.alert(res.error.message); return; }
           fetchDealPosts().then(function (posts) { dealPosts = posts; renderFeed(); renderRecent(); });
         });
         return;
