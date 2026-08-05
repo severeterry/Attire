@@ -138,6 +138,12 @@
     document.getElementById("thread-popup-members-list").hidden = true;
     document.getElementById("thread-popup-title").textContent = titleOverride || "Conversation";
 
+    sb.from("threads").select("status").eq("id", threadId).maybeSingle().then(function (statusRes) {
+      var expired = statusRes.data && statusRes.data.status === "expired";
+      document.getElementById("thread-popup-compose-form").hidden = expired;
+      document.getElementById("thread-popup-expired-note").hidden = !expired;
+    });
+
     var headEl = document.getElementById("thread-popup-head");
     var avatarEl = document.getElementById("thread-popup-avatar");
     if (organizerCategory || organizerAvatarUrl) headEl.setAttribute("data-cat", organizerCategory || "");
@@ -321,7 +327,7 @@
       "</div>" +
       '<div class="post-actions">' +
       '<button type="button" class="btn btn-outline btn-sm" data-action="toggle-expand">See full details</button>' +
-      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="btn btn-primary btn-sm">View &amp; Join</a>' +
+      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="btn btn-primary btn-sm">' + (pool.status === "open" ? "View &amp; Join" : "View") + "</a>" +
       "</div>" +
       "</article>"
     );
@@ -423,10 +429,12 @@
     });
   }
 
-  function manageParticipantsHtml(pending, accepted) {
+  function manageParticipantsHtml(pending, accepted, cap) {
+    var capReached = !!cap && accepted.length >= cap;
     return (
       '<div class="form-card" style="margin-top:1rem;" id="manage-participants-panel">' +
       '<div class="profile-card-head"><h3>Manage participants</h3></div>' +
+      (capReached ? '<p class="settings-note">Participant cap of ' + cap + ' reached &mdash; accept a new request by removing someone first.</p>' : "") +
 
       '<p class="settings-note" style="font-weight:700;">Pending requests (' + pending.length + ")</p>" +
       (pending.length
@@ -436,7 +444,7 @@
               '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.5rem 0; border-bottom:1px solid var(--color-border);">' +
               '<span class="settings-note" style="margin:0;">' + escapeHtml(name) + "</span>" +
               '<span style="display:flex; gap:0.4rem;">' +
-              '<button type="button" class="btn btn-primary btn-sm" data-action="accept-participant" data-id="' + p.profile_id + '">Accept</button>' +
+              '<button type="button" class="btn btn-primary btn-sm" data-action="accept-participant" data-id="' + p.profile_id + '"' + (capReached ? " disabled" : "") + '>Accept</button>' +
               '<button type="button" class="btn btn-outline btn-sm" data-action="decline-participant" data-id="' + p.profile_id + '">Decline</button>' +
               "</span></div>"
             );
@@ -526,6 +534,8 @@
       }).join("") +
       "</ul>";
 
+    var iAmAccepted = !!(myRow && myRow.status === "accepted");
+
     if (pool.status === "open" && !isOrganizer) {
       if (!myRow) {
         html += '<button type="button" class="btn btn-primary btn-sm" id="pool-join-btn">Request to Join</button>' +
@@ -535,15 +545,19 @@
           '<button type="button" class="btn btn-outline btn-sm" id="pool-cancel-request-btn">Cancel request</button>' +
           '<p class="login-error" id="pool-cancel-request-error" hidden></p>';
       } else {
-        html += '<p class="settings-note">You&rsquo;re in this Co-Op.</p>';
+        html += '<p class="settings-note">You&rsquo;re in this Co-Op.</p>' +
+          '<button type="button" class="btn btn-outline btn-sm" id="pool-leave-btn">Leave Co-Op</button>' +
+          '<p class="login-error" id="pool-leave-error" hidden></p>';
       }
     }
     if (pool.status === "open" && isOrganizer) {
       html += '<div style="margin-top:0.5rem;"><button type="button" class="btn btn-outline btn-sm" id="pool-close-btn">Close Co-Op now</button>' +
         '<p class="login-error" id="pool-close-error" hidden></p></div>';
     }
-    if (pool.status === "closed" && pool.chat_thread_id) {
+    if (pool.status === "closed" && (isOrganizer || iAmAccepted)) {
       html += '<a href="thread.html?id=' + encodeURIComponent(pool.chat_thread_id) + '" class="btn btn-primary btn-sm" style="margin-top:0.75rem;">Go to group chat</a>';
+    } else if (pool.status === "closed" && myRow && myRow.status === "pending") {
+      html += '<p class="settings-note">This Co-Op closed before the organizer got to your request &mdash; you weren&rsquo;t included in the group.</p>';
     }
     if (pool.status === "closed" && isOrganizer) {
       html += '<div class="form-field" style="margin-top:0.75rem;">' +
@@ -554,12 +568,16 @@
         "</div>";
     }
     if (pool.status === "cancelled") {
-      html += '<p class="settings-note">This Co-Op didn&rsquo;t reach the minimum of 2 participants and was cancelled.</p>';
+      html += '<p class="settings-note">This Co-Op didn&rsquo;t reach its minimum of ' + pool.target_group_size + ' participants and was cancelled.</p>';
+    }
+    if (isOrganizer) {
+      html += '<div style="margin-top:0.75rem;"><button type="button" class="btn btn-outline btn-sm" id="pool-delete-btn">Delete Co-Op</button>' +
+        '<p class="login-error" id="pool-delete-error" hidden></p></div>';
     }
     html += "</div>";
 
     if (pool.status === "open" && isOrganizer) {
-      html += manageParticipantsHtml(pendingParticipants, acceptedParticipants);
+      html += manageParticipantsHtml(pendingParticipants, acceptedParticipants, pool.participant_cap);
     }
 
     contentEl.innerHTML = html;
@@ -619,6 +637,10 @@
     var closeBtn = document.getElementById("pool-close-btn");
     if (closeBtn) {
       closeBtn.addEventListener("click", function () {
+        if (acceptedParticipants.length < pool.target_group_size) {
+          var short = pool.target_group_size - acceptedParticipants.length;
+          if (!window.confirm("Only " + acceptedParticipants.length + " of " + pool.target_group_size + " minimum participants accepted (" + short + " short). Closing now will cancel this Co-Op instead of finalizing it. Continue?")) return;
+        }
         closeBtn.disabled = true;
         sb.rpc("close_pooling_thread", { p_pooling_thread_id: poolId }).then(function (res) {
           if (res.error) {
@@ -629,6 +651,42 @@
             return;
           }
           loadDetail(poolId);
+        });
+      });
+    }
+
+    var leaveBtn = document.getElementById("pool-leave-btn");
+    if (leaveBtn) {
+      leaveBtn.addEventListener("click", function () {
+        if (!window.confirm("Leave this Co-Op? You'll need to request to join again if you change your mind.")) return;
+        leaveBtn.disabled = true;
+        sb.from("pooling_participants").delete().eq("pooling_thread_id", poolId).eq("profile_id", profile.id).then(function (res) {
+          if (res.error) {
+            var errEl = document.getElementById("pool-leave-error");
+            errEl.textContent = res.error.message;
+            errEl.hidden = false;
+            leaveBtn.disabled = false;
+            return;
+          }
+          loadDetail(poolId);
+        });
+      });
+    }
+
+    var deleteBtn = document.getElementById("pool-delete-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", function () {
+        if (!window.confirm("Delete this Co-Op? Any group chat it already started will be kept, but the Co-Op listing itself can't be recovered.")) return;
+        deleteBtn.disabled = true;
+        sb.from("pooling_threads").delete().eq("id", poolId).then(function (res) {
+          if (res.error) {
+            var errEl = document.getElementById("pool-delete-error");
+            errEl.textContent = res.error.message;
+            errEl.hidden = false;
+            deleteBtn.disabled = false;
+            return;
+          }
+          window.location.href = "pooling.html";
         });
       });
     }
