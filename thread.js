@@ -21,6 +21,13 @@
     return '<span class="' + cls + '"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
   }
 
+  function sharedPhotosHtml(urls) {
+    if (!urls.length) return '<p class="settings-note">No photos shared yet.</p>';
+    return '<div class="shared-photos-grid">' + urls.map(function (u) {
+      return '<a href="' + escapeHtml(u) + '" target="_blank" rel="noopener" class="shared-photo-thumb"><img src="' + escapeHtml(u) + '" alt="" loading="lazy"></a>';
+    }).join("") + "</div>";
+  }
+
   document.addEventListener("DOMContentLoaded", async function () {
     if (!window.AttireAuth) return;
     var session = await window.AttireAuth.getSession();
@@ -67,12 +74,21 @@
       participants.forEach(function (p) { threadParticipants[p.profile_id] = p.profiles || {}; });
 
       var listEl = document.getElementById("thread-members-list");
-      listEl.innerHTML = participants.map(function (p) {
+      var membersHtml = participants.map(function (p) {
         var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
         var prof = p.profiles || {};
         return '<div class="context-member-item">' + avatarHtml(n, prof.category, "portal-avatar-sm", prof.avatar_url) +
           '<span class="context-member-name" style="color:inherit;">' + escapeHtml(n) + "</span></div>";
       }).join("");
+      listEl.innerHTML =
+        '<p class="details-panel-heading">Members</p>' + membersHtml +
+        '<p class="details-panel-heading">Shared Photos</p><p class="settings-note">Loading&hellip;</p>';
+
+      var photoRes = await sb.from("messages").select("image_url").eq("thread_id", threadId).not("image_url", "is", null)
+        .order("created_at", { ascending: false }).limit(9);
+      var urls = (photoRes.data || []).map(function (m) { return m.image_url; });
+      var photosEl = listEl.lastElementChild;
+      if (photosEl) photosEl.outerHTML = sharedPhotosHtml(urls);
     }
 
     async function loadIdentity() {
@@ -127,14 +143,17 @@
       }
 
       messagesEl.innerHTML = msgRes.data.length
-        ? msgRes.data.map(function (m) {
+        ? msgRes.data.map(function (m, i) {
             var mine = m.sender_id === profile.id;
             var sender = threadParticipants[m.sender_id] || {};
             var senderName = sender.org_name || sender.contact_name || "Member";
+            var isFirstOfRun = i === 0 || msgRes.data[i - 1].sender_id !== m.sender_id;
             return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
-              (mine ? "" : avatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)) +
+              (mine ? "" : isFirstOfRun
+                ? avatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)
+                : '<span class="chat-bubble-avatar-spacer" aria-hidden="true"></span>') +
               '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
-              (mine ? "" : '<span class="chat-bubble-sender">' + escapeHtml(senderName) + "</span>") +
+              (mine || !isFirstOfRun ? "" : '<span class="chat-bubble-sender">' + escapeHtml(senderName) + "</span>") +
               (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
               (m.body ? escapeHtml(m.body) : "") + "</div></div>";
           }).join("")

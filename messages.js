@@ -160,11 +160,15 @@
 
     var messagesEl = document.getElementById("chat-messages");
     var msgRes = await sb.from("messages").select("id, sender_id, body, image_url, created_at").eq("thread_id", activeThreadId).order("created_at", { ascending: true });
-    messagesEl.innerHTML = (msgRes.data || []).length
-      ? msgRes.data.map(function (m) {
+    var msgs = msgRes.data || [];
+    messagesEl.innerHTML = msgs.length
+      ? msgs.map(function (m, i) {
           var mine = m.sender_id === profile.id;
+          var isLastOfRun = i === msgs.length - 1 || msgs[i + 1].sender_id !== m.sender_id;
           return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
-            (mine ? "" : avatarHtml(name, other.category, "chat-bubble-avatar portal-avatar-sm", other.avatar_url)) +
+            (mine ? "" : isLastOfRun
+              ? avatarHtml(name, other.category, "chat-bubble-avatar portal-avatar-sm", other.avatar_url)
+              : '<span class="chat-bubble-avatar-spacer" aria-hidden="true"></span>') +
             '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
             (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
             (m.body ? escapeHtml(m.body) : "") + "</div></div>";

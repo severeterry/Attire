@@ -43,8 +43,10 @@
       var meta = metaFn ? metaFn(n.payload || {}) : { label: n.type, href: "member-portal.html" };
       var isRead = !!n.read_at;
       return (
-        '<article class="post-card" style="opacity:' + (isRead ? "0.6" : "1") + ';" data-id="' + n.id + '">' +
-        '<a href="' + meta.href + '" class="post-body" style="display:block;">' + escapeHtml(meta.label) + "</a>" +
+        '<article class="post-card" style="opacity:' + (isRead ? "0.75" : "1") + ';" data-id="' + n.id + '">' +
+        '<a href="' + meta.href + '" class="post-body" style="display:flex; align-items:flex-start; gap:0.5rem;">' +
+        (isRead ? "" : '<span class="active-thread-unread" aria-hidden="true" title="Unread" style="margin-top:0.4rem;"></span>') +
+        "<span>" + escapeHtml(meta.label) + "</span></a>" +
         '<p class="settings-note">' + new Date(n.created_at).toLocaleString() + "</p>" +
         (isRead ? "" : '<button type="button" class="btn btn-outline btn-sm" data-action="mark-read" data-id="' + n.id + '">Mark as read</button>') +
         "</article>"

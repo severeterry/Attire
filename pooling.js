@@ -149,12 +149,22 @@
     threadPopupParticipants = {};
     participants.forEach(function (p) { threadPopupParticipants[p.profile_id] = p.profiles || {}; });
 
-    document.getElementById("thread-popup-members-list").innerHTML = participants.map(function (p) {
+    var membersHtml = participants.map(function (p) {
       var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
       var prof = p.profiles || {};
       return '<div class="context-member-item">' + avatarHtml(n, prof.category, "portal-avatar-sm", prof.avatar_url) +
         '<span class="context-member-name" style="color:inherit;">' + escapeHtml(n) + "</span></div>";
     }).join("");
+    document.getElementById("thread-popup-members-list").innerHTML =
+      '<p class="details-panel-heading">Members</p>' + membersHtml +
+      '<p class="details-panel-heading">Shared Photos</p><p class="settings-note">Loading&hellip;</p>';
+
+    sb.from("messages").select("image_url").eq("thread_id", threadId).not("image_url", "is", null)
+      .order("created_at", { ascending: false }).limit(9).then(function (photoRes) {
+        var urls = (photoRes.data || []).map(function (m) { return m.image_url; });
+        var photosEl = document.getElementById("thread-popup-members-list").lastElementChild;
+        if (photosEl) photosEl.outerHTML = sharedPhotosHtml(urls);
+      });
 
     sb.from("thread_participants").update({ last_read_at: new Date().toISOString() })
       .eq("thread_id", threadId).eq("profile_id", profile.id).then(function () {});
@@ -167,15 +177,19 @@
     var msgRes = await sb.from("messages").select("id, sender_id, body, image_url, created_at")
       .eq("thread_id", activeThreadPopupId).order("created_at", { ascending: true });
     var bodyEl = document.getElementById("thread-popup-body");
-    bodyEl.innerHTML = (msgRes.data || []).length
-      ? msgRes.data.map(function (m) {
+    var msgs = msgRes.data || [];
+    bodyEl.innerHTML = msgs.length
+      ? msgs.map(function (m, i) {
           var mine = m.sender_id === profile.id;
           var sender = threadPopupParticipants[m.sender_id] || {};
           var senderName = sender.org_name || sender.contact_name || "Member";
+          var isFirstOfRun = i === 0 || msgs[i - 1].sender_id !== m.sender_id;
           return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
-            (mine ? "" : avatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)) +
+            (mine ? "" : isFirstOfRun
+              ? avatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)
+              : '<span class="chat-bubble-avatar-spacer" aria-hidden="true"></span>') +
             '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
-            (mine ? "" : '<span class="chat-bubble-sender">' + escapeHtml(senderName) + "</span>") +
+            (mine || !isFirstOfRun ? "" : '<span class="chat-bubble-sender">' + escapeHtml(senderName) + "</span>") +
             (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
             (m.body ? escapeHtml(m.body) : "") + "</div></div>";
         }).join("")
@@ -208,6 +222,13 @@
     var cls = "portal-avatar" + (extraClass ? " " + extraClass : "");
     if (avatarUrl) return '<span class="' + cls + ' portal-avatar-img"><img src="' + avatarUrl + '" alt=""></span>';
     return '<span class="' + cls + '"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
+  }
+
+  function sharedPhotosHtml(urls) {
+    if (!urls.length) return '<p class="settings-note">No photos shared yet.</p>';
+    return '<div class="shared-photos-grid">' + urls.map(function (u) {
+      return '<a href="' + escapeHtml(u) + '" target="_blank" rel="noopener" class="shared-photo-thumb"><img src="' + escapeHtml(u) + '" alt="" loading="lazy"></a>';
+    }).join("") + "</div>";
   }
 
   function labelForPoolCategory(cat) {
