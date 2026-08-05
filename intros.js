@@ -65,6 +65,32 @@
     return '<span class="' + cls + '"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
   }
 
+  // Default (40px) size, unlike avatarHtml above which is locked to
+  // portal-avatar-lg for the browsable member directory cards — used for
+  // the compact Active Intros sidebar/popup, matching the sizing convention
+  // already established in portal.js/pooling.js/thread.js/messages.js.
+  function smallAvatarHtml(name, category, extraClass, avatarUrl) {
+    var cls = "portal-avatar" + (extraClass ? " " + extraClass : "");
+    if (avatarUrl) return '<span class="' + cls + ' portal-avatar-img"><img src="' + escapeHtml(avatarUrl) + '" alt=""></span>';
+    return '<span class="' + cls + '"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
+  }
+
+  function sharedPhotosHtml(urls) {
+    if (!urls.length) return '<p class="settings-note">No photos shared yet.</p>';
+    return '<div class="shared-photos-grid">' + urls.map(function (u) {
+      return '<a href="' + escapeHtml(u) + '" target="_blank" rel="noopener" class="shared-photo-thumb"><img src="' + escapeHtml(u) + '" alt="" loading="lazy"></a>';
+    }).join("") + "</div>";
+  }
+
+  async function uploadThreadImage(file) {
+    if (!file) return null;
+    var ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    var path = profile.id + "/" + Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
+    var res = await sb.storage.from("post-attachments").upload(path, file);
+    if (res.error) return null;
+    return sb.storage.from("post-attachments").getPublicUrl(path).data.publicUrl;
+  }
+
   function memberMatchesFilters(m) {
     if (introFilterState.category !== "all" && m.category !== introFilterState.category) return false;
     if (introFilterState.borough !== "all" && m.borough !== introFilterState.borough) return false;
@@ -311,6 +337,155 @@
     document.getElementById("intro-popup-backdrop").classList.remove("is-open");
   }
 
+  // ---- "Active Intros" — real message threads created when an intro
+  // request is accepted (see the accept_intro_request RPC), with their own
+  // popup mirroring the Active Threads pattern already built for The
+  // Exchange/The Co-Op. Always exactly 2 people, like Exchange threads. ----
+
+  var TIME_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+
+  function timeLeftLabel(lastMessageAt) {
+    var expiresAt = new Date(lastMessageAt).getTime() + 14 * 24 * 60 * 60 * 1000;
+    var msLeft = expiresAt - Date.now();
+    if (msLeft <= 0) return "Expired";
+    var daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+    if (daysLeft >= 1) return daysLeft + "d left";
+    return Math.max(1, Math.ceil(msLeft / (60 * 60 * 1000))) + "h left";
+  }
+
+  async function fetchMyIntroThreads() {
+    var res = await sb.from("intro_requests")
+      .select("id, chat_thread_id, requestor:requestor_id(id, org_name, contact_name, category, avatar_url), requestee:requestee_id(id, org_name, contact_name, category, avatar_url)")
+      .or("requestor_id.eq." + profile.id + ",requestee_id.eq." + profile.id)
+      .eq("status", "accepted")
+      .not("chat_thread_id", "is", null);
+    var intros = res.data || [];
+    if (!intros.length) return [];
+
+    var threadIds = intros.map(function (i) { return i.chat_thread_id; });
+    var threadsRes = await sb.from("threads").select("id, status, last_message_at").in("id", threadIds).eq("status", "active");
+    var threadById = {};
+    (threadsRes.data || []).forEach(function (t) { threadById[t.id] = t; });
+
+    var tpRes = await sb.from("thread_participants").select("thread_id, last_read_at").eq("profile_id", profile.id).in("thread_id", threadIds);
+    var lastReadByThread = {};
+    (tpRes.data || []).forEach(function (r) { lastReadByThread[r.thread_id] = r.last_read_at; });
+
+    var threads = [];
+    for (var i = 0; i < intros.length; i++) {
+      var intro = intros[i];
+      var t = threadById[intro.chat_thread_id];
+      if (!t) continue;
+      var other = intro.requestor.id === profile.id ? intro.requestee : intro.requestor;
+      var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
+        .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id] || "1970-01-01");
+      threads.push({ id: t.id, other: other, lastMessageAt: t.last_message_at, unread: unreadRes.count || 0 });
+    }
+    threads.sort(function (a, b) { return new Date(b.lastMessageAt) - new Date(a.lastMessageAt); });
+    return threads;
+  }
+
+  function activeIntroThreadItemHtml(t) {
+    var other = t.other || {};
+    var name = other.org_name || other.contact_name || "Member";
+    return (
+      '<button type="button" class="active-thread-item" data-action="open-thread-popup" data-id="' + t.id + '">' +
+      smallAvatarHtml(name, other.category, "active-thread-avatar", other.avatar_url) +
+      '<span class="active-thread-body">' +
+      '<span class="active-thread-name">' + escapeHtml(name) + "</span>" +
+      '<span class="active-thread-meta">' + TIME_ICON + timeLeftLabel(t.lastMessageAt) + "</span></span>" +
+      (t.unread > 0 ? '<span class="active-thread-unread" aria-hidden="true" title="Unread messages"></span>' : "") +
+      "</button>"
+    );
+  }
+
+  async function renderActiveIntroThreads() {
+    var listEl = document.getElementById("active-intro-threads-list");
+    if (!listEl) return;
+    var threads = await fetchMyIntroThreads();
+    listEl.innerHTML = threads.length ? threads.map(activeIntroThreadItemHtml).join("") : '<p class="settings-note">No active intros yet.</p>';
+  }
+
+  var activeThreadPopupId = null;
+  var threadPopupParticipants = {};
+
+  async function openThreadPopup(threadId) {
+    activeThreadPopupId = threadId;
+    document.getElementById("thread-popup-backdrop").classList.add("is-open");
+    document.getElementById("thread-popup-members-list").hidden = true;
+
+    var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name, category, avatar_url)").eq("thread_id", threadId);
+    var participants = partRes.data || [];
+    threadPopupParticipants = {};
+    participants.forEach(function (p) { threadPopupParticipants[p.profile_id] = p.profiles || {}; });
+
+    var membersHtml = participants.map(function (p) {
+      var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
+      var prof = p.profiles || {};
+      return '<div class="context-member-item">' + smallAvatarHtml(n, prof.category, "portal-avatar-sm", prof.avatar_url) +
+        '<span class="context-member-name" style="color:inherit;">' + escapeHtml(n) + "</span></div>";
+    }).join("");
+    document.getElementById("thread-popup-members-list").innerHTML =
+      '<p class="details-panel-heading">Members</p>' + membersHtml +
+      '<p class="details-panel-heading">Shared Photos</p><p class="settings-note">Loading&hellip;</p>';
+
+    sb.from("messages").select("image_url").eq("thread_id", threadId).not("image_url", "is", null)
+      .order("created_at", { ascending: false }).limit(9).then(function (photoRes) {
+        var urls = (photoRes.data || []).map(function (m) { return m.image_url; });
+        var photosEl = document.getElementById("thread-popup-members-list").lastElementChild;
+        if (photosEl) photosEl.outerHTML = sharedPhotosHtml(urls);
+      });
+
+    var others = participants.filter(function (p) { return p.profile_id !== profile.id; });
+    var owner = others.length === 1 ? (others[0].profiles || {}) : {};
+    var title = others.length === 1 ? (owner.org_name || owner.contact_name || "Member") : "Group (" + participants.length + ")";
+    document.getElementById("thread-popup-title").textContent = title;
+
+    var headEl = document.getElementById("thread-popup-head");
+    var avatarEl = document.getElementById("thread-popup-avatar");
+    if (others.length === 1) {
+      headEl.setAttribute("data-cat", owner.category || "");
+      avatarEl.outerHTML = smallAvatarHtml(title, owner.category, "thread-popup-avatar", owner.avatar_url).replace("<span", '<span id="thread-popup-avatar"');
+    } else {
+      headEl.removeAttribute("data-cat");
+      avatarEl.outerHTML = '<span class="portal-avatar thread-popup-avatar" id="thread-popup-avatar">' + others.length + "</span>";
+    }
+
+    sb.from("thread_participants").update({ last_read_at: new Date().toISOString() })
+      .eq("thread_id", threadId).eq("profile_id", profile.id).then(function () {});
+
+    await loadThreadPopupMessages();
+  }
+
+  async function loadThreadPopupMessages() {
+    if (!activeThreadPopupId) return;
+    var msgRes = await sb.from("messages").select("id, sender_id, body, image_url, created_at")
+      .eq("thread_id", activeThreadPopupId).order("created_at", { ascending: true });
+    var bodyEl = document.getElementById("thread-popup-body");
+    var msgs = msgRes.data || [];
+    bodyEl.innerHTML = msgs.length
+      ? msgs.map(function (m, i) {
+          var mine = m.sender_id === profile.id;
+          var sender = threadPopupParticipants[m.sender_id] || {};
+          var senderName = sender.org_name || sender.contact_name || "Member";
+          var isLastOfRun = i === msgs.length - 1 || msgs[i + 1].sender_id !== m.sender_id;
+          return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
+            (mine ? "" : isLastOfRun
+              ? smallAvatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)
+              : '<span class="chat-bubble-avatar-spacer" aria-hidden="true"></span>') +
+            '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+            (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
+            (m.body ? escapeHtml(m.body) : "") + "</div></div>";
+        }).join("")
+      : '<p class="settings-note">No messages yet.</p>';
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function closeThreadPopup() {
+    activeThreadPopupId = null;
+    document.getElementById("thread-popup-backdrop").classList.remove("is-open");
+  }
+
   async function loadResolved() {
     var res = await sb
       .from("intro_requests")
@@ -417,19 +592,22 @@
     });
 
     function resolveIntroRequest(introId, decision, errorEl) {
-      return sb.from("intro_requests")
-        .update({ status: decision, resolved_at: new Date().toISOString() })
-        .eq("id", introId)
-        .eq("status", "pending")
-        .then(function (res) {
-          if (res.error) {
-            if (errorEl) { errorEl.textContent = res.error.message; errorEl.hidden = false; }
-            return;
-          }
-          closeIntroPopup();
-          loadIncoming();
-          loadResolved();
-        });
+      // Accepting creates a real message thread (accept_intro_request RPC),
+      // matching how Exchange/Co-Op turn an accepted match into a real
+      // conversation — decline stays a plain status update, no thread needed.
+      var op = decision === "accepted"
+        ? sb.rpc("accept_intro_request", { p_intro_id: introId })
+        : sb.from("intro_requests").update({ status: decision, resolved_at: new Date().toISOString() }).eq("id", introId).eq("status", "pending");
+      return op.then(function (res) {
+        if (res.error) {
+          if (errorEl) { errorEl.textContent = res.error.message; errorEl.hidden = false; }
+          return;
+        }
+        closeIntroPopup();
+        loadIncoming();
+        loadResolved();
+        renderActiveIntroThreads();
+      });
     }
 
     document.getElementById("intros-incoming").addEventListener("click", function (e) {
@@ -459,6 +637,52 @@
     document.getElementById("intro-popup-close").addEventListener("click", closeIntroPopup);
     document.getElementById("intro-popup-backdrop").addEventListener("click", function (e) {
       if (e.target.id === "intro-popup-backdrop") closeIntroPopup();
+    });
+
+    await renderActiveIntroThreads();
+
+    document.getElementById("active-intro-threads-list").addEventListener("click", function (e) {
+      var item = e.target.closest('[data-action="open-thread-popup"]');
+      if (!item) return;
+      openThreadPopup(item.dataset.id);
+    });
+
+    document.getElementById("thread-popup-close").addEventListener("click", closeThreadPopup);
+    document.getElementById("thread-popup-backdrop").addEventListener("click", function (e) {
+      if (e.target.id === "thread-popup-backdrop") closeThreadPopup();
+    });
+
+    document.getElementById("thread-popup-members-btn").addEventListener("click", function () {
+      var list = document.getElementById("thread-popup-members-list");
+      list.hidden = !list.hidden;
+    });
+
+    var threadPopupImageInput = document.getElementById("thread-popup-image-input");
+    document.getElementById("thread-popup-attach-btn").addEventListener("click", function () {
+      threadPopupImageInput.click();
+    });
+
+    document.getElementById("thread-popup-compose-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      if (!activeThreadPopupId) return;
+      var input = document.getElementById("thread-popup-input");
+      var text = input.value.trim();
+      var imageFile = threadPopupImageInput.files[0];
+      if (!text && !imageFile) return;
+
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      var imageUrl = await uploadThreadImage(imageFile);
+      var res = await sb.from("messages").insert({ thread_id: activeThreadPopupId, sender_id: profile.id, body: text || "", image_url: imageUrl });
+      submitBtn.disabled = false;
+      if (res.error) {
+        window.alert(res.error.message);
+        return;
+      }
+      input.value = "";
+      threadPopupImageInput.value = "";
+      await loadThreadPopupMessages();
+      renderActiveIntroThreads();
     });
 
     document.getElementById("intros-resolved").addEventListener("click", function (e) {

@@ -71,6 +71,9 @@
     var poolByThread = {};
     (poolRes.data || []).forEach(function (p) { poolByThread[p.chat_thread_id] = p; });
 
+    var introRes = await sb.from("intro_requests").select("chat_thread_id").in("chat_thread_id", allIds);
+    var introThreadIds = new Set((introRes.data || []).map(function (r) { return r.chat_thread_id; }));
+
     var otherRes = await sb.from("thread_participants").select("thread_id, profiles(org_name, contact_name, category, avatar_url)")
       .in("thread_id", allIds).neq("profile_id", profile.id);
     var otherByThread = {};
@@ -86,9 +89,10 @@
       var pool = poolByThread[t.id];
       var other = otherByThread[t.id] || {};
       var isCoop = !!pool;
+      var isIntro = !isCoop && introThreadIds.has(t.id);
       var label = isCoop ? pool.title : (other.org_name || other.contact_name || "Member");
       var avatarSource = isCoop ? (pool.profiles || {}) : other;
-      var href = isCoop ? "pooling.html" : (t.rfp_post_id ? "member-portal.html?view=deal" : "messages.html?thread=" + encodeURIComponent(t.id));
+      var href = isCoop ? "pooling.html" : isIntro ? "intros.html" : (t.rfp_post_id ? "member-portal.html?view=deal" : "messages.html?thread=" + encodeURIComponent(t.id));
       var lastMsg = lastMsgByThread[t.id];
       var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
         .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id] || "1970-01-01");

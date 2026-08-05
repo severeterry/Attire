@@ -62,15 +62,16 @@
     return isMe(name) ? "profile.html" : "profile.html?member=" + encodeURIComponent(name);
   }
 
-  // Exchange/Co-Op threads no longer surface here — each now has its own
-  // popup on its own page (see portal.js/pooling.js), listed under that
-  // page's "Active Threads" sidebar widget instead of duplicated here.
+  // Exchange/Co-Op/Intro threads no longer surface here — each now has its
+  // own popup on its own page (see portal.js/pooling.js/intros.js), listed
+  // under that page's own "Active" sidebar widget instead of duplicated here.
 
   var sb = window.supabaseClient;
 
   // Fetches every plain DM thread the caller is in — no rfp_post_id, and
-  // not referenced by any pooling_threads.chat_thread_id (those live only
-  // on their own pages now, see portal.js/pooling.js's Active Threads).
+  // not referenced by any pooling_threads.chat_thread_id or
+  // intro_requests.chat_thread_id (those live only on their own pages now,
+  // see portal.js/pooling.js/intros.js's Active-thread widgets).
   async function fetchDmThreads() {
     var tpRes = await sb.from("thread_participants").select("thread_id, last_read_at").eq("profile_id", profile.id);
     if (tpRes.error || !tpRes.data.length) return [];
@@ -82,9 +83,14 @@
       .in("id", threadIds).is("rfp_post_id", null).order("last_message_at", { ascending: false });
     if (threadsRes.error || !threadsRes.data.length) return [];
 
-    var poolRes = await sb.from("pooling_threads").select("chat_thread_id").in("chat_thread_id", threadsRes.data.map(function (t) { return t.id; }));
-    var coopThreadIds = new Set((poolRes.data || []).map(function (p) { return p.chat_thread_id; }));
-    var plainThreads = threadsRes.data.filter(function (t) { return !coopThreadIds.has(t.id); });
+    var allIds = threadsRes.data.map(function (t) { return t.id; });
+    var poolRes = await sb.from("pooling_threads").select("chat_thread_id").in("chat_thread_id", allIds);
+    var introRes = await sb.from("intro_requests").select("chat_thread_id").in("chat_thread_id", allIds);
+    var excludedThreadIds = new Set(
+      (poolRes.data || []).map(function (p) { return p.chat_thread_id; })
+        .concat((introRes.data || []).map(function (i) { return i.chat_thread_id; }))
+    );
+    var plainThreads = threadsRes.data.filter(function (t) { return !excludedThreadIds.has(t.id); });
     if (!plainThreads.length) return [];
 
     var otherRes = await sb.from("thread_participants").select("thread_id, profiles(id, org_name, contact_name, category, avatar_url)")
