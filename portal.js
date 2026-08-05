@@ -7,6 +7,51 @@
   var filterState = { sort: "newest" };
   var responseCounts = {};
 
+  // Uploads to the shared post-attachments bucket (public read, so the
+  // resulting URL works directly in an <img src> the same way the
+  // directory's logo URLs do) and returns the public URL, or null if
+  // nothing was selected.
+  async function uploadPostImage(file, ownerId) {
+    if (!file) return null;
+    var ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    var path = ownerId + "/" + Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
+    var res = await sb.storage.from("post-attachments").upload(path, file);
+    if (res.error) return null;
+    return sb.storage.from("post-attachments").getPublicUrl(path).data.publicUrl;
+  }
+
+  function setupImageAttach(btnId, inputId, nameId, previewId) {
+    var btn = document.getElementById(btnId);
+    var input = document.getElementById(inputId);
+    var nameEl = document.getElementById(nameId);
+    var previewEl = document.getElementById(previewId);
+    if (!btn || !input) return;
+
+    btn.addEventListener("click", function () { input.click(); });
+    input.addEventListener("change", function () {
+      var file = input.files[0];
+      if (!file) {
+        if (nameEl) nameEl.textContent = "";
+        if (previewEl) previewEl.hidden = true;
+        return;
+      }
+      if (nameEl) nameEl.textContent = file.name;
+      if (previewEl) {
+        previewEl.src = URL.createObjectURL(file);
+        previewEl.hidden = false;
+      }
+    });
+  }
+
+  function clearImageAttach(inputId, nameId, previewId) {
+    var input = document.getElementById(inputId);
+    var nameEl = document.getElementById(nameId);
+    var previewEl = document.getElementById(previewId);
+    if (input) input.value = "";
+    if (nameEl) nameEl.textContent = "";
+    if (previewEl) previewEl.hidden = true;
+  }
+
   // Response counts are public (visible to any viewer of the listing) even
   // though the thread content behind them stays private to its participants
   // — get_rfp_response_counts only ever returns a count, never thread rows.
@@ -73,7 +118,7 @@
   async function fetchDealPosts() {
     var res = await sb
       .from("rfp_posts")
-      .select("id, post_type, category, scope, budget_range, deadline, body, status, created_at, author_id, profiles(org_name, contact_name, category)")
+      .select("id, post_type, category, scope, budget_range, deadline, body, status, created_at, author_id, image_url, profiles(org_name, contact_name, category)")
       .order("created_at", { ascending: false });
     if (res.error) {
       console.error(res.error);
@@ -98,6 +143,7 @@
       '<div class="post-meta-row"><span>' + relativeTime(new Date(post.created_at).getTime()) + " ago</span>" +
       "<span>&middot;</span><span>" + responseCountLabel(post.id) + "</span></div>" +
       "</div></div>" +
+      (post.image_url ? '<img class="post-attachment-img" src="' + escapeHtml(post.image_url) + '" alt="" loading="lazy">' : "") +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
       '<p class="settings-note">' + (details || "No additional details") + " &mdash; " + post.status + "</p>" +
       '<div class="post-actions">' +
@@ -275,8 +321,9 @@
 
     var composerForm = document.getElementById("composer-form");
     var composerError = document.getElementById("composer-error");
+    setupImageAttach("composer-attach-btn", "composer-image-input", "composer-attach-name", "composer-attach-preview");
 
-    composerForm.addEventListener("submit", function (e) {
+    composerForm.addEventListener("submit", async function (e) {
       e.preventDefault();
       var body = document.getElementById("composer-textarea").value.trim();
       if (!body) return;
@@ -284,6 +331,9 @@
 
       var submitBtn = composerForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
+
+      var imageFile = document.getElementById("composer-image-input").files[0];
+      var imageUrl = await uploadPostImage(imageFile, profile.id);
 
       sb.from("rfp_posts").insert({
         author_id: profile.id,
@@ -293,6 +343,7 @@
         budget_range: document.getElementById("composer-budget").value.trim() || null,
         deadline: document.getElementById("composer-deadline").value || null,
         body: body,
+        image_url: imageUrl,
       }).then(function (res) {
         submitBtn.disabled = false;
         if (res.error) {
@@ -301,6 +352,7 @@
           return;
         }
         composerForm.reset();
+        clearImageAttach("composer-image-input", "composer-attach-name", "composer-attach-preview");
         fetchDealPosts().then(function (posts) {
           dealPosts = posts;
           renderFeed();

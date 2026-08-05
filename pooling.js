@@ -6,6 +6,47 @@
   var pools = [];
   var filterState = { sort: "newest" };
 
+  async function uploadPostImage(file, ownerId) {
+    if (!file) return null;
+    var ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    var path = ownerId + "/" + Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
+    var res = await sb.storage.from("post-attachments").upload(path, file);
+    if (res.error) return null;
+    return sb.storage.from("post-attachments").getPublicUrl(path).data.publicUrl;
+  }
+
+  function setupImageAttach(btnId, inputId, nameId, previewId) {
+    var btn = document.getElementById(btnId);
+    var input = document.getElementById(inputId);
+    var nameEl = document.getElementById(nameId);
+    var previewEl = document.getElementById(previewId);
+    if (!btn || !input) return;
+
+    btn.addEventListener("click", function () { input.click(); });
+    input.addEventListener("change", function () {
+      var file = input.files[0];
+      if (!file) {
+        if (nameEl) nameEl.textContent = "";
+        if (previewEl) previewEl.hidden = true;
+        return;
+      }
+      if (nameEl) nameEl.textContent = file.name;
+      if (previewEl) {
+        previewEl.src = URL.createObjectURL(file);
+        previewEl.hidden = false;
+      }
+    });
+  }
+
+  function clearImageAttach(inputId, nameId, previewId) {
+    var input = document.getElementById(inputId);
+    var nameEl = document.getElementById(nameId);
+    var previewEl = document.getElementById(previewId);
+    if (input) input.value = "";
+    if (nameEl) nameEl.textContent = "";
+    if (previewEl) previewEl.hidden = true;
+  }
+
   function escapeHtml(str) {
     return String(str)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -62,7 +103,7 @@
   async function fetchPools() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url)")
+      .select("id, title, category, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, image_url, profiles(org_name, contact_name, category, avatar_url)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     var poolList = res.data;
@@ -95,6 +136,7 @@
       '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
       '<div class="post-meta-row"><span>' + relativeTime(new Date(pool.created_at).getTime()) + " ago</span></div>" +
       "</div></div>" +
+      (pool.image_url ? '<img class="post-attachment-img" src="' + escapeHtml(pool.image_url) + '" alt="" loading="lazy">' : "") +
       '<p class="post-author-name" style="margin-top:0.6rem;">' + escapeHtml(pool.title) + "</p>" +
       '<p class="settings-note">' +
       labelForPoolCategory(pool.category) + " &mdash; " +
@@ -155,13 +197,16 @@
 
     var form = document.getElementById("pool-create-form");
     var errorEl = document.getElementById("pool-create-error");
+    setupImageAttach("pool-attach-btn", "pool-image-input", "pool-attach-name", "pool-attach-preview");
 
-    form.addEventListener("submit", function (e) {
+    form.addEventListener("submit", async function (e) {
       e.preventDefault();
       errorEl.hidden = true;
 
       var closesAt = document.getElementById("pool-closes").value;
       var cap = document.getElementById("pool-cap").value;
+      var imageFile = document.getElementById("pool-image-input").files[0];
+      var imageUrl = await uploadPostImage(imageFile, profile.id);
 
       var payload = {
         organizer_id: profile.id,
@@ -171,6 +216,7 @@
         target_group_size: Number(document.getElementById("pool-target").value),
         participant_cap: cap ? Number(cap) : null,
         closes_at: closesAt || null,
+        image_url: imageUrl,
       };
       if (categorySelect.value === "materials") {
         payload.moq = document.getElementById("pool-moq").value.trim() || null;
@@ -257,7 +303,7 @@
 
     var poolRes = await sb
       .from("pooling_threads")
-      .select("id, title, description, category, moq, unit_cost, production_run_details, service_type, cost_per_member_estimate, target_group_size, participant_cap, closes_at, status, organizer_id, chat_thread_id")
+      .select("id, title, description, category, moq, unit_cost, production_run_details, service_type, cost_per_member_estimate, target_group_size, participant_cap, closes_at, status, organizer_id, chat_thread_id, image_url")
       .eq("id", poolId)
       .single();
 
@@ -284,6 +330,7 @@
     var html =
       '<h1 class="section-title" style="font-size:1.6rem;">' + escapeHtml(pool.title) + "</h1>" +
       '<p class="settings-note">' + labelForPoolCategory(pool.category) + "</p>" +
+      (pool.image_url ? '<img class="post-attachment-img" style="margin:0.75rem 0;" src="' + escapeHtml(pool.image_url) + '" alt="" loading="lazy">' : "") +
       '<p class="section-lede">' + escapeHtml(pool.description) + "</p>" +
       '<div class="form-card">' +
       (detailsLine ? '<p class="settings-note">' + detailsLine + "</p>" : "") +

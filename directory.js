@@ -129,8 +129,23 @@
     return card;
   }
 
+  // Groups listings with a logo together, and those without together, ahead
+  // of whatever filter/search is active — a website URL is what actually
+  // gates whether logoImgHtml() attempts an image at all, so it's the
+  // reliable synchronous signal (the runtime blur/404 removal in
+  // logoImgHtml happens after render and isn't worth an async pre-check
+  // for every listing on every filter change).
+  function sortByLogoPresence(items) {
+    return items.slice().sort(function (a, b) {
+      var aHas = a.websiteUrl ? 1 : 0;
+      var bHas = b.websiteUrl ? 1 : 0;
+      if (aHas !== bHas) return bHas - aHas;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
   function render() {
-    var filtered = LISTINGS.filter(matchesFilters);
+    var filtered = sortByLogoPresence(LISTINGS.filter(matchesFilters));
     grid.innerHTML = "";
     filtered.forEach(function (item) { grid.appendChild(renderCard(item)); });
 

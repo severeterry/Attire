@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=48">
+<link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body class="portal-page">
 
@@ -129,6 +129,12 @@
               <input type="datetime-local" id="pool-closes">
             </div>
           </div>
+          <div class="composer-attach">
+            <button type="button" class="btn btn-outline btn-sm" id="pool-attach-btn">Attach photo</button>
+            <input type="file" id="pool-image-input" accept="image/*" hidden>
+            <span class="composer-attach-name" id="pool-attach-name"></span>
+            <img class="composer-attach-preview" id="pool-attach-preview" alt="" hidden>
+          </div>
           <p class="login-error" id="pool-create-error" hidden></p>
           <button type="submit" class="btn btn-primary btn-block">Start Co-Op</button>
         </form>
@@ -175,6 +181,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
 <script src="shell.js?v=3"></script>
-<script src="pooling.js?v=6"></script>
+<script src="pooling.js?v=7"></script>
 </body>
 </html>

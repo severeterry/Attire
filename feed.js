@@ -73,7 +73,7 @@
   async function fetchExchangeItems() {
     var res = await sb
       .from("rfp_posts")
-      .select("id, body, created_at, author_id, profiles(org_name, contact_name, category, avatar_url, tier)")
+      .select("id, body, created_at, author_id, image_url, profiles(org_name, contact_name, category, avatar_url, tier)")
       .order("created_at", { ascending: false })
       .limit(15);
     if (res.error) { console.error(res.error); return []; }
@@ -83,7 +83,7 @@
   async function fetchCoopItems() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, description, created_at, organizer_id, profiles(org_name, contact_name, category, avatar_url, tier)")
+      .select("id, title, description, created_at, organizer_id, image_url, profiles(org_name, contact_name, category, avatar_url, tier)")
       .order("created_at", { ascending: false })
       .limit(15);
     if (res.error) { console.error(res.error); return []; }
@@ -131,10 +131,10 @@
       return { source: "post", id: p.id, raw: p, authorId: p.author_id, profiles: p.profiles, body: p.body, createdAt: p.created_at };
     });
     var normalizedExchange = exchangeItems.map(function (p) {
-      return { source: "exchange", id: p.id, raw: p, authorId: p.author_id, profiles: p.profiles, body: p.body, createdAt: p.created_at };
+      return { source: "exchange", id: p.id, raw: p, authorId: p.author_id, profiles: p.profiles, body: p.body, createdAt: p.created_at, imageUrl: p.image_url };
     });
     var normalizedCoop = coopItems.map(function (p) {
-      return { source: "coop", id: p.id, raw: p, authorId: p.organizer_id, profiles: p.profiles, body: p.title + " — " + p.description, createdAt: p.created_at };
+      return { source: "coop", id: p.id, raw: p, authorId: p.organizer_id, profiles: p.profiles, body: p.title + " — " + p.description, createdAt: p.created_at, imageUrl: p.image_url };
     });
 
     feedItems = normalizedPosts.concat(normalizedExchange, normalizedCoop);
@@ -198,6 +198,7 @@
         (item.source === "exchange" ? "<span>&middot;</span><span>" + responseCountLabel(item.id) + "</span>" : "") +
         "</div>" +
         "</div></div>" +
+        (item.imageUrl ? '<img class="post-attachment-img" src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy">' : "") +
         '<p class="post-body">' + escapeHtml(item.body) + "</p>" +
         '<div class="post-actions">' +
         '<a href="' + linkHrefFor(item) + '" class="btn btn-outline btn-sm">' + (item.source === "exchange" ? "View on The Exchange" : "View in The Co-Op") + "</a>" +

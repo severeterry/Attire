@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=48">
+<link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body class="portal-page">
 
@@ -121,6 +121,12 @@
               <input type="date" id="composer-deadline">
             </div>
           </div>
+          <div class="composer-attach">
+            <button type="button" class="btn btn-outline btn-sm" id="composer-attach-btn">Attach photo</button>
+            <input type="file" id="composer-image-input" accept="image/*" hidden>
+            <span class="composer-attach-name" id="composer-attach-name"></span>
+            <img class="composer-attach-preview" id="composer-attach-preview" alt="" hidden>
+          </div>
           <p class="login-error" id="composer-error" hidden></p>
           <div class="composer-actions">
             <span class="app-topbar-spacer"></span>
@@ -192,6 +198,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
 <script src="shell.js?v=3"></script>
-<script src="portal.js?v=15"></script>
+<script src="portal.js?v=16"></script>
 </body>
 </html>
