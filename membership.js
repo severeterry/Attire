@@ -206,7 +206,7 @@
         }
 
         if (session) {
-          window.location.href = "member-portal.html";
+          window.location.href = "feed.html";
           return;
         }
 

@@ -191,7 +191,7 @@
         e.preventDefault();
         getSession().then(function (session) {
           if (session) {
-            window.location.href = link.getAttribute("href") || "member-portal.html";
+            window.location.href = link.getAttribute("href") || "feed.html";
             return;
           }
           openModal();
@@ -239,7 +239,7 @@
           errorEl.hidden = false;
           return;
         }
-        window.location.href = "member-portal.html";
+        window.location.href = "feed.html";
       });
     });
   });
