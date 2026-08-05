@@ -220,6 +220,8 @@
     return pieces.join("");
   }
 
+  var incomingRequests = [];
+
   async function loadIncoming() {
     var res = await sb
       .from("intro_requests")
@@ -229,8 +231,11 @@
       .order("created_at", { ascending: false });
 
     var container = document.getElementById("intros-incoming");
+    incomingRequests = res.error ? [] : res.data;
+
     if (res.error || !res.data.length) {
       container.innerHTML = '<p class="settings-note">Nothing pending.</p>';
+      renderActiveIntroRequests();
       return;
     }
 
@@ -243,6 +248,62 @@
       cards.push(incomingCardHtml(intro, sharedCategory, sharedBorough, count));
     }
     container.innerHTML = cards.join("");
+    renderActiveIntroRequests();
+  }
+
+  // ---- Sidebar "Active Requests" widget + popup — a compact, always-visible
+  // way to see/act on pending incoming requests without scrolling to the
+  // inline list below. Reuses the same incomingRequests data.
+
+  function renderActiveIntroRequests() {
+    var listEl = document.getElementById("active-intro-requests-list");
+    if (!listEl) return;
+    listEl.innerHTML = incomingRequests.length
+      ? incomingRequests.map(function (intro) {
+          var name = intro.requestor.org_name || intro.requestor.contact_name || "Member";
+          return (
+            '<button type="button" class="active-thread-item" data-action="open-intro-popup" data-id="' + intro.id + '">' +
+            '<span class="active-thread-body">' +
+            '<span class="active-thread-name">' + escapeHtml(name) + "</span>" +
+            '<span class="active-thread-meta">Pending &mdash; ' + relativeTime(new Date(intro.created_at).getTime()) + " ago</span>" +
+            "</span>" +
+            "</button>"
+          );
+        }).join("")
+      : '<p class="settings-note">No pending requests.</p>';
+  }
+
+  function relativeTime(ts) {
+    var diff = Math.max(0, Date.now() - ts);
+    var min = Math.round(diff / 60000);
+    if (min < 1) return "just now";
+    if (min < 60) return min + "m";
+    var hr = Math.round(min / 60);
+    if (hr < 24) return hr + "h";
+    return Math.round(hr / 24) + "d";
+  }
+
+  function openIntroPopup(introId) {
+    var intro = incomingRequests.find(function (r) { return r.id === introId; });
+    if (!intro) return;
+    var name = intro.requestor.org_name || intro.requestor.contact_name || "Member";
+    var bodyEl = document.getElementById("intro-popup-body");
+    bodyEl.innerHTML =
+      '<div class="post-head" style="margin-bottom:0.75rem;">' +
+      avatarHtml(name, intro.requestor.category) +
+      "<div><p class=\"post-author-name\">" + escapeHtml(name) + "</p>" +
+      '<p class="settings-note" style="margin:0;">Requesting an introduction to you</p></div></div>' +
+      (intro.note ? '<p class="post-body">' + escapeHtml(intro.note) + "</p>" : '<p class="settings-note">No reason given.</p>') +
+      '<div style="display:flex; gap:0.5rem; margin-top:1rem;">' +
+      '<button type="button" class="btn btn-primary btn-sm" data-action="accept" data-id="' + intro.id + '">Accept</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-action="decline" data-id="' + intro.id + '">Decline</button>' +
+      "</div>" +
+      '<p class="login-error" data-error-for="' + intro.id + '" hidden></p>';
+    document.getElementById("intro-popup-backdrop").classList.add("is-open");
+  }
+
+  function closeIntroPopup() {
+    document.getElementById("intro-popup-backdrop").classList.remove("is-open");
   }
 
   async function loadResolved() {
@@ -350,14 +411,8 @@
       });
     });
 
-    document.getElementById("intros-incoming").addEventListener("click", function (e) {
-      var btn = e.target.closest("button[data-action]");
-      if (!btn) return;
-      var introId = btn.dataset.id;
-      var decision = btn.dataset.action === "accept" ? "accepted" : "declined";
-      var errorEl = document.querySelector('[data-error-for="' + introId + '"]');
-
-      sb.from("intro_requests")
+    function resolveIntroRequest(introId, decision, errorEl) {
+      return sb.from("intro_requests")
         .update({ status: decision, resolved_at: new Date().toISOString() })
         .eq("id", introId)
         .eq("status", "pending")
@@ -366,9 +421,39 @@
             if (errorEl) { errorEl.textContent = res.error.message; errorEl.hidden = false; }
             return;
           }
+          closeIntroPopup();
           loadIncoming();
           loadResolved();
         });
+    }
+
+    document.getElementById("intros-incoming").addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      var introId = btn.dataset.id;
+      var decision = btn.dataset.action === "accept" ? "accepted" : "declined";
+      var errorEl = document.querySelector('[data-error-for="' + introId + '"]');
+      resolveIntroRequest(introId, decision, errorEl);
+    });
+
+    document.getElementById("active-intro-requests-list").addEventListener("click", function (e) {
+      var item = e.target.closest('[data-action="open-intro-popup"]');
+      if (!item) return;
+      openIntroPopup(item.dataset.id);
+    });
+
+    document.getElementById("intro-popup-body").addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      var introId = btn.dataset.id;
+      var decision = btn.dataset.action === "accept" ? "accepted" : "declined";
+      var errorEl = document.querySelector('#intro-popup-body [data-error-for="' + introId + '"]');
+      resolveIntroRequest(introId, decision, errorEl);
+    });
+
+    document.getElementById("intro-popup-close").addEventListener("click", closeIntroPopup);
+    document.getElementById("intro-popup-backdrop").addEventListener("click", function (e) {
+      if (e.target.id === "intro-popup-backdrop") closeIntroPopup();
     });
 
     document.getElementById("intros-resolved").addEventListener("click", function (e) {

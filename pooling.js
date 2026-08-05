@@ -53,6 +53,120 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  // ---- Active Co-Op Threads (sidebar) + shared messenger-style popup —
+  // replaces surfacing these threads on the Messages page; each thread now
+  // lives only under the page it belongs to. A Co-Op thread can have more
+  // than 2 participants (everyone accepted into the pool), unlike Exchange
+  // threads which are always exactly 2. ----
+
+  function timeLeftLabel(lastMessageAt) {
+    var expiresAt = new Date(lastMessageAt).getTime() + 14 * 24 * 60 * 60 * 1000;
+    var msLeft = expiresAt - Date.now();
+    if (msLeft <= 0) return "Expired";
+    var daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+    if (daysLeft >= 1) return daysLeft + "d left";
+    return Math.max(1, Math.ceil(msLeft / (60 * 60 * 1000))) + "h left";
+  }
+
+  var TIME_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+
+  async function fetchMyCoopThreads() {
+    var myPoolsRes = await sb.from("pooling_threads").select("id, title, chat_thread_id").eq("organizer_id", profile.id).not("chat_thread_id", "is", null);
+    var partRes = await sb.from("pooling_participants").select("pooling_thread_id").eq("profile_id", profile.id).eq("status", "accepted");
+    var participantPoolIds = (partRes.data || []).map(function (r) { return r.pooling_thread_id; });
+    var participantPoolsRes = participantPoolIds.length
+      ? await sb.from("pooling_threads").select("id, title, chat_thread_id").in("id", participantPoolIds).not("chat_thread_id", "is", null)
+      : { data: [] };
+
+    var poolsById = {};
+    (myPoolsRes.data || []).forEach(function (p) { poolsById[p.id] = p; });
+    (participantPoolsRes.data || []).forEach(function (p) { poolsById[p.id] = p; });
+    var poolList = Object.keys(poolsById).map(function (k) { return poolsById[k]; });
+    if (!poolList.length) return [];
+
+    var threadIds = poolList.map(function (p) { return p.chat_thread_id; });
+    var threadsRes = await sb.from("threads").select("id, status, last_message_at").in("id", threadIds).eq("status", "active");
+    if (threadsRes.error || !threadsRes.data.length) return [];
+    var threadById = {};
+    threadsRes.data.forEach(function (t) { threadById[t.id] = t; });
+
+    var tpRes = await sb.from("thread_participants").select("thread_id, last_read_at")
+      .eq("profile_id", profile.id).in("thread_id", threadsRes.data.map(function (t) { return t.id; }));
+    var lastReadByThread = {};
+    (tpRes.data || []).forEach(function (r) { lastReadByThread[r.thread_id] = r.last_read_at; });
+
+    var threads = [];
+    for (var i = 0; i < poolList.length; i++) {
+      var pool = poolList[i];
+      var t = threadById[pool.chat_thread_id];
+      if (!t) continue;
+      var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
+        .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id] || "1970-01-01");
+      threads.push({ id: t.id, title: pool.title, lastMessageAt: t.last_message_at, unread: unreadRes.count || 0 });
+    }
+    return threads;
+  }
+
+  function activeThreadItemHtml(t) {
+    return (
+      '<button type="button" class="active-thread-item" data-action="open-thread-popup" data-id="' + t.id + '" data-title="' + escapeHtml(t.title) + '">' +
+      '<span class="active-thread-body">' +
+      '<span class="active-thread-name">' + escapeHtml(t.title) + "</span>" +
+      '<span class="active-thread-meta">' + TIME_ICON + timeLeftLabel(t.lastMessageAt) + "</span></span>" +
+      (t.unread > 0 ? '<span class="active-thread-unread" aria-hidden="true" title="Unread messages"></span>' : "") +
+      "</button>"
+    );
+  }
+
+  async function renderActiveCoopThreads() {
+    var listEl = document.getElementById("active-coop-threads-list");
+    if (!listEl) return;
+    var threads = await fetchMyCoopThreads();
+    listEl.innerHTML = threads.length ? threads.map(activeThreadItemHtml).join("") : '<p class="settings-note">No active conversations.</p>';
+  }
+
+  var activeThreadPopupId = null;
+
+  async function openThreadPopup(threadId, titleOverride) {
+    activeThreadPopupId = threadId;
+    document.getElementById("thread-popup-backdrop").classList.add("is-open");
+    document.getElementById("thread-popup-members-list").hidden = true;
+    document.getElementById("thread-popup-title").textContent = titleOverride || "Conversation";
+
+    var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name)").eq("thread_id", threadId);
+    var participants = partRes.data || [];
+    document.getElementById("thread-popup-members-list").innerHTML = participants.map(function (p) {
+      var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
+      return '<div class="context-member-item" style="padding:0.3rem 0;">' + escapeHtml(n) + "</div>";
+    }).join("");
+
+    sb.from("thread_participants").update({ last_read_at: new Date().toISOString() })
+      .eq("thread_id", threadId).eq("profile_id", profile.id).then(function () {});
+
+    await loadThreadPopupMessages();
+  }
+
+  async function loadThreadPopupMessages() {
+    if (!activeThreadPopupId) return;
+    var msgRes = await sb.from("messages").select("id, sender_id, body, image_url, created_at")
+      .eq("thread_id", activeThreadPopupId).order("created_at", { ascending: true });
+    var bodyEl = document.getElementById("thread-popup-body");
+    bodyEl.innerHTML = (msgRes.data || []).length
+      ? msgRes.data.map(function (m) {
+          var mine = m.sender_id === profile.id;
+          return '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+            (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
+            (m.body ? escapeHtml(m.body) : "") + "</div>";
+        }).join("")
+      : '<p class="settings-note">No messages yet.</p>';
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function closeThreadPopup() {
+    activeThreadPopupId = null;
+    document.getElementById("thread-popup-backdrop").classList.remove("is-open");
+  }
+
   function initials(name) {
     var parts = name.trim().split(/\s+/);
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -589,10 +703,50 @@
     await fetchTrending();
     renderPoolList();
     renderRecent();
+    renderActiveCoopThreads();
 
     document.getElementById("pooling-sort-select").addEventListener("change", function (e) {
       filterState.sort = e.target.value;
       renderPoolList();
+    });
+
+    document.getElementById("active-coop-threads-list").addEventListener("click", function (e) {
+      var item = e.target.closest('[data-action="open-thread-popup"]');
+      if (!item) return;
+      openThreadPopup(item.dataset.id, item.dataset.title);
+    });
+
+    document.getElementById("thread-popup-close").addEventListener("click", function () {
+      closeThreadPopup();
+      renderActiveCoopThreads();
+    });
+    document.getElementById("thread-popup-backdrop").addEventListener("click", function (e) {
+      if (e.target.id === "thread-popup-backdrop") { closeThreadPopup(); renderActiveCoopThreads(); }
+    });
+    document.getElementById("thread-popup-members-btn").addEventListener("click", function () {
+      var list = document.getElementById("thread-popup-members-list");
+      list.hidden = !list.hidden;
+    });
+    document.getElementById("thread-popup-attach-btn").addEventListener("click", function () {
+      document.getElementById("thread-popup-image-input").click();
+    });
+    document.getElementById("thread-popup-compose-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      if (!activeThreadPopupId) return;
+      var input = document.getElementById("thread-popup-input");
+      var body = input.value.trim();
+      var imageFile = document.getElementById("thread-popup-image-input").files[0];
+      if (!body && !imageFile) return;
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      var imageUrl = await uploadPostImage(imageFile, profile.id);
+      sb.from("messages").insert({ thread_id: activeThreadPopupId, sender_id: profile.id, body: body || "", image_url: imageUrl }).then(function (res) {
+        submitBtn.disabled = false;
+        if (res.error) { window.alert(res.error.message); return; }
+        input.value = "";
+        document.getElementById("thread-popup-image-input").value = "";
+        loadThreadPopupMessages();
+      });
     });
 
     document.getElementById("pooling-list").addEventListener("click", function (e) {

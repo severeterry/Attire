@@ -1273,6 +1273,45 @@ body:has(.app-shell) { overflow: hidden; }
 .chat-compose input:focus { outline: none; border-color: var(--color-brand); }
 .chat-compose .icon-btn { background: var(--color-brand); color: #fff; }
 .chat-compose .icon-btn:hover { background: var(--color-brand-dark); }
+.chat-attach-preview { width: 36px; height: 36px; border-radius: var(--radius-sm); object-fit: cover; }
+.chat-bubble-img { display: block; max-width: 220px; border-radius: var(--radius-sm); margin-bottom: 0.3rem; }
+
+/* ---------- Active-thread widgets (Exchange/Co-Op sidebar) + shared popup ---------- */
+.active-thread-item {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left;
+  padding: 0.55rem 0; border: none; background: none; cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.08); color: inherit; font-family: inherit;
+}
+.active-thread-item:last-child { border-bottom: none; }
+.active-thread-body { flex: 1; min-width: 0; }
+.active-thread-name { display: block; font-size: 0.85rem; font-weight: 700; color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-context-section--card .active-thread-name { color: var(--color-ink); }
+.active-thread-meta { display: flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: var(--color-ink-soft); margin-top: 0.1rem; }
+.active-thread-meta svg { flex-shrink: 0; }
+.active-thread-unread {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--flag, #C4562B); flex-shrink: 0;
+  background: #C4562B;
+}
+
+.thread-popup-panel { max-width: 480px; height: 560px; max-height: 82vh; display: flex; flex-direction: column; padding: var(--space-3); }
+.thread-popup-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); margin-bottom: 0.75rem; }
+.thread-popup-head h2 { font-size: 1.05rem; margin: 0; }
+.thread-popup-members-wrap { position: relative; }
+.thread-popup-members-list {
+  position: absolute; top: calc(100% + 0.4rem); right: 0; background: #fff; border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); box-shadow: 0 12px 30px -12px rgba(0,0,0,0.25); padding: 0.5rem; min-width: 180px; z-index: 5;
+}
+.thread-popup-members-list .context-member-item { color: var(--color-ink); }
+.thread-popup-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; padding: 0.25rem 0; }
+.thread-popup-body .chat-bubble.from-them { background: var(--color-cream); }
+.thread-popup-compose { display: flex; align-items: center; gap: 0.5rem; padding-top: 0.6rem; border-top: 1px solid var(--color-border); }
+.thread-popup-compose input {
+  flex: 1; border: 1.5px solid var(--color-border); border-radius: 999px; padding: 0.6rem 1rem;
+  font-family: inherit; font-size: 0.88rem; background: var(--color-cream);
+}
+.thread-popup-compose input:focus { outline: none; border-color: var(--color-brand); }
+
+.intro-popup-panel { max-width: 420px; padding: var(--space-3); }
 
 /* ---------- Member portal: context sidebar ---------- */
 .app-context { width: 280px; flex-shrink: 0; border-left: 1px solid rgba(255,255,255,0.08); overflow-y: auto; padding: var(--space-3); }

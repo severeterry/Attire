@@ -69,6 +69,116 @@
     return count + (count === 1 ? " response" : " responses");
   }
 
+  // ---- Active Exchange Threads (sidebar) + shared messenger-style popup —
+  // replaces surfacing these threads on the Messages page; each thread now
+  // lives only under the page it belongs to. ----
+
+  function timeLeftLabel(lastMessageAt) {
+    var expiresAt = new Date(lastMessageAt).getTime() + 14 * 24 * 60 * 60 * 1000;
+    var msLeft = expiresAt - Date.now();
+    if (msLeft <= 0) return "Expired";
+    var daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+    if (daysLeft >= 1) return daysLeft + "d left";
+    return Math.max(1, Math.ceil(msLeft / (60 * 60 * 1000))) + "h left";
+  }
+
+  var TIME_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+
+  async function fetchMyExchangeThreads() {
+    var tpRes = await sb.from("thread_participants").select("thread_id, last_read_at").eq("profile_id", profile.id);
+    if (tpRes.error || !tpRes.data.length) return [];
+    var lastReadByThread = {};
+    tpRes.data.forEach(function (r) { lastReadByThread[r.thread_id] = r.last_read_at; });
+    var threadIds = tpRes.data.map(function (r) { return r.thread_id; });
+
+    var threadsRes = await sb.from("threads").select("id, status, last_message_at")
+      .in("id", threadIds).not("rfp_post_id", "is", null).eq("status", "active")
+      .order("last_message_at", { ascending: false });
+    if (threadsRes.error || !threadsRes.data.length) return [];
+
+    var activeIds = threadsRes.data.map(function (t) { return t.id; });
+    var otherRes = await sb.from("thread_participants").select("thread_id, profiles(org_name, contact_name)")
+      .in("thread_id", activeIds).neq("profile_id", profile.id);
+    var otherByThread = {};
+    (otherRes.data || []).forEach(function (r) { otherByThread[r.thread_id] = r.profiles; });
+
+    var threads = [];
+    for (var i = 0; i < threadsRes.data.length; i++) {
+      var t = threadsRes.data[i];
+      var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
+        .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id]);
+      threads.push({ id: t.id, lastMessageAt: t.last_message_at, other: otherByThread[t.id] || null, unread: unreadRes.count || 0 });
+    }
+    return threads;
+  }
+
+  function activeThreadItemHtml(t) {
+    var other = t.other || {};
+    var name = other.org_name || other.contact_name || "Member";
+    return (
+      '<button type="button" class="active-thread-item" data-action="open-thread-popup" data-id="' + t.id + '">' +
+      '<span class="active-thread-body">' +
+      '<span class="active-thread-name">' + escapeHtml(name) + "</span>" +
+      '<span class="active-thread-meta">' + TIME_ICON + timeLeftLabel(t.lastMessageAt) + "</span></span>" +
+      (t.unread > 0 ? '<span class="active-thread-unread" aria-hidden="true" title="Unread messages"></span>' : "") +
+      "</button>"
+    );
+  }
+
+  async function renderActiveExchangeThreads() {
+    var listEl = document.getElementById("active-exchange-threads-list");
+    if (!listEl) return;
+    var threads = await fetchMyExchangeThreads();
+    listEl.innerHTML = threads.length ? threads.map(activeThreadItemHtml).join("") : '<p class="settings-note">No active conversations.</p>';
+  }
+
+  var activeThreadPopupId = null;
+
+  async function openThreadPopup(threadId) {
+    activeThreadPopupId = threadId;
+    document.getElementById("thread-popup-backdrop").classList.add("is-open");
+    document.getElementById("thread-popup-members-list").hidden = true;
+
+    var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name)").eq("thread_id", threadId);
+    var participants = partRes.data || [];
+    document.getElementById("thread-popup-members-list").innerHTML = participants.map(function (p) {
+      var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
+      return '<div class="context-member-item" style="padding:0.3rem 0;">' + escapeHtml(n) + "</div>";
+    }).join("");
+
+    var others = participants.filter(function (p) { return p.profile_id !== profile.id; });
+    var title = others.length === 1 && others[0].profiles
+      ? (others[0].profiles.org_name || others[0].profiles.contact_name || "Member")
+      : "Group (" + participants.length + ")";
+    document.getElementById("thread-popup-title").textContent = title;
+
+    sb.from("thread_participants").update({ last_read_at: new Date().toISOString() })
+      .eq("thread_id", threadId).eq("profile_id", profile.id).then(function () {});
+
+    await loadThreadPopupMessages();
+  }
+
+  async function loadThreadPopupMessages() {
+    if (!activeThreadPopupId) return;
+    var msgRes = await sb.from("messages").select("id, sender_id, body, image_url, created_at")
+      .eq("thread_id", activeThreadPopupId).order("created_at", { ascending: true });
+    var bodyEl = document.getElementById("thread-popup-body");
+    bodyEl.innerHTML = (msgRes.data || []).length
+      ? msgRes.data.map(function (m) {
+          var mine = m.sender_id === profile.id;
+          return '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+            (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
+            (m.body ? escapeHtml(m.body) : "") + "</div>";
+        }).join("")
+      : '<p class="settings-note">No messages yet.</p>';
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function closeThreadPopup() {
+    activeThreadPopupId = null;
+    document.getElementById("thread-popup-backdrop").classList.remove("is-open");
+  }
+
   function initials(name) {
     var parts = name.trim().split(/\s+/);
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -353,6 +463,7 @@
     await fetchTrending();
     renderFeed();
     renderRecent();
+    renderActiveExchangeThreads();
 
     var composerForm = document.getElementById("composer-form");
     var composerError = document.getElementById("composer-error");
@@ -443,6 +554,45 @@
       submitRespond();
     });
     document.getElementById("respond-sample-btn").addEventListener("click", submitSampleRequest);
+
+    document.getElementById("active-exchange-threads-list").addEventListener("click", function (e) {
+      var item = e.target.closest('[data-action="open-thread-popup"]');
+      if (!item) return;
+      openThreadPopup(item.dataset.id);
+    });
+
+    document.getElementById("thread-popup-close").addEventListener("click", function () {
+      closeThreadPopup();
+      renderActiveExchangeThreads();
+    });
+    document.getElementById("thread-popup-backdrop").addEventListener("click", function (e) {
+      if (e.target.id === "thread-popup-backdrop") { closeThreadPopup(); renderActiveExchangeThreads(); }
+    });
+    document.getElementById("thread-popup-members-btn").addEventListener("click", function () {
+      var list = document.getElementById("thread-popup-members-list");
+      list.hidden = !list.hidden;
+    });
+    document.getElementById("thread-popup-attach-btn").addEventListener("click", function () {
+      document.getElementById("thread-popup-image-input").click();
+    });
+    document.getElementById("thread-popup-compose-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      if (!activeThreadPopupId) return;
+      var input = document.getElementById("thread-popup-input");
+      var body = input.value.trim();
+      var imageFile = document.getElementById("thread-popup-image-input").files[0];
+      if (!body && !imageFile) return;
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      var imageUrl = await uploadPostImage(imageFile, profile.id);
+      sb.from("messages").insert({ thread_id: activeThreadPopupId, sender_id: profile.id, body: body || "", image_url: imageUrl }).then(function (res) {
+        submitBtn.disabled = false;
+        if (res.error) { window.alert(res.error.message); return; }
+        input.value = "";
+        document.getElementById("thread-popup-image-input").value = "";
+        loadThreadPopupMessages();
+      });
+    });
 
     document.getElementById("exchange-recent-list").addEventListener("click", function (e) {
       var link = e.target.closest("[data-scroll-to]");

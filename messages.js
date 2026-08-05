@@ -94,57 +94,11 @@
     return isMe(name) ? "profile.html" : "profile.html?member=" + encodeURIComponent(name);
   }
 
-  // ---- Real Exchange/Co-Op threads (Supabase-backed) — separate from the
-  // mock DM list above; each links out to thread.html's own chat view rather
-  // than duplicating live-thread rendering here. ----
+  // Exchange/Co-Op threads no longer surface here — each now has its own
+  // popup on its own page (see portal.js/pooling.js), listed under that
+  // page's "Active Threads" sidebar widget instead of duplicated here.
 
   var sb = window.supabaseClient;
-
-  async function fetchRealThreads() {
-    var tpRes = await sb.from("thread_participants").select("thread_id").eq("profile_id", profile.id);
-    if (tpRes.error || !tpRes.data.length) return [];
-    var threadIds = tpRes.data.map(function (r) { return r.thread_id; });
-
-    var threadsRes = await sb
-      .from("threads")
-      .select("id, status, last_message_at")
-      .in("id", threadIds)
-      .order("last_message_at", { ascending: false });
-    if (threadsRes.error) return [];
-
-    var otherRes = await sb
-      .from("thread_participants")
-      .select("thread_id, profiles(org_name, contact_name, category, avatar_url)")
-      .in("thread_id", threadIds)
-      .neq("profile_id", profile.id);
-    var otherByThread = {};
-    (otherRes.data || []).forEach(function (r) { otherByThread[r.thread_id] = r.profiles; });
-
-    return threadsRes.data.map(function (t) {
-      return { id: t.id, status: t.status, lastMessageAt: t.last_message_at, other: otherByThread[t.id] || null };
-    });
-  }
-
-  function realThreadItemHtml(t) {
-    var other = t.other || {};
-    var name = other.org_name || other.contact_name || "Member";
-    var preview = t.status === "expired" ? "Expired &mdash; read only" : "Open the conversation";
-    return (
-      '<a href="thread.html?id=' + encodeURIComponent(t.id) + '" class="app-list-item">' +
-      avatarHtml(name, other.category, null, other.avatar_url) +
-      '<span class="app-list-item-body"><span class="app-list-item-name">' + escapeHtml(name) + "</span>" +
-      '<span class="app-list-item-preview">' + preview + "</span></span>" +
-      "</a>"
-    );
-  }
-
-  function renderRealThreadList(threads) {
-    var listEl = document.getElementById("real-thread-list");
-    if (!listEl) return;
-    listEl.innerHTML = threads.length
-      ? threads.map(realThreadItemHtml).join("")
-      : '<p class="settings-note" style="padding:0 var(--space-3);">No Exchange/Co-Op conversations yet.</p>';
-  }
 
   function renderThreadList() {
     var listEl = document.getElementById("chat-thread-list");
@@ -272,7 +226,6 @@
 
     seedConnectionsIfEmpty(profile.name);
     dmState = loadDmState();
-    fetchRealThreads().then(renderRealThreadList);
 
     var params = new URLSearchParams(window.location.search);
     var threadParam = params.get("thread");
