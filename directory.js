@@ -35,6 +35,39 @@
     return '<span class="cat-badge" data-cat="' + catId + '">' + CATEGORY_LABELS[catId] + "</span>";
   }
 
+  // Derives a logo image from a known website URL via Clearbit's public logo
+  // API (no separate logo field to source/maintain) — this.remove() on error
+  // so a domain with no logo just quietly shows nothing instead of a broken image.
+  function logoUrl(websiteUrl) {
+    if (!websiteUrl) return null;
+    try {
+      var domain = new URL(websiteUrl).hostname.replace(/^www\./, "");
+      return "https://logo.clearbit.com/" + domain;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function socialLinksHtml(item) {
+    var links = [];
+    if (item.websiteUrl) {
+      links.push({ href: item.websiteUrl, label: "Website",
+        icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' });
+    }
+    if (item.instagramUrl) {
+      links.push({ href: item.instagramUrl, label: "Instagram",
+        icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><path d="M17.5 6.5h.01"/></svg>' });
+    }
+    if (item.tiktokUrl) {
+      links.push({ href: item.tiktokUrl, label: "TikTok",
+        icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>' });
+    }
+    if (!links.length) return "";
+    return links.map(function (l) {
+      return '<a class="icon-btn" href="' + escapeHtml(l.href) + '" target="_blank" rel="noopener" aria-label="' + l.label + '">' + l.icon + "</a>";
+    }).join("");
+  }
+
   function escapeHtml(str) {
     var div = document.createElement("div");
     div.textContent = str;
@@ -57,10 +90,14 @@
     card.type = "button";
     card.className = "listing-card";
     card.setAttribute("data-id", item.id);
+    var logo = logoUrl(item.websiteUrl);
     card.innerHTML =
       '<div class="listing-top">' +
         catBadge(item.category) +
-        vBadge(item.verified) +
+        '<div class="listing-top-right">' +
+          vBadge(item.verified) +
+          (logo ? '<img class="listing-logo" src="' + escapeHtml(logo) + '" alt="" loading="lazy" onerror="this.remove()">' : "") +
+        "</div>" +
       "</div>" +
       "<h3>" + escapeHtml(item.name) + "</h3>" +
       '<p class="listing-sub">' + escapeHtml(item.subcategory) + " &middot; " + escapeHtml(item.borough) + "</p>" +
@@ -141,6 +178,15 @@
       noteEl.hidden = true;
     }
 
+    var linksEl = document.getElementById("modal-links");
+    var linksHtml = socialLinksHtml(item);
+    if (linksHtml) {
+      linksEl.hidden = false;
+      linksEl.innerHTML = linksHtml;
+    } else {
+      linksEl.hidden = true;
+    }
+
     lastFocused = document.activeElement;
     modalBackdrop.classList.add("is-open");
     modalClose.focus();
@@ -170,6 +216,7 @@
         id: row.id, name: row.name, category: row.category, subcategory: row.subcategory,
         borough: row.borough, verified: row.verified, tag: row.tag, yearsNote: row.years_note,
         description: row.description, goodToKnow: row.good_to_know,
+        websiteUrl: row.website_url, instagramUrl: row.instagram_url, tiktokUrl: row.tiktok_url,
       };
     });
   }
