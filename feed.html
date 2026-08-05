@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=53">
+<link rel="stylesheet" href="styles.css?v=54">
 </head>
 <body class="portal-page">
 
@@ -69,6 +69,10 @@
   <div class="app-body">
     <header class="app-topbar">
       <div class="app-topbar-title">Feed</div>
+      <div class="app-topbar-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="feed-search" placeholder="Search the Feed&hellip;" aria-label="Search the Feed">
+      </div>
       <div class="app-topbar-spacer"></div>
     </header>
 
@@ -120,6 +124,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
 <script src="shell.js?v=3"></script>
-<script src="feed.js?v=7"></script>
+<script src="feed.js?v=8"></script>
 </body>
 </html>

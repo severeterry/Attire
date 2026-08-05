@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=53">
+<link rel="stylesheet" href="styles.css?v=54">
 </head>
 <body class="portal-page">
 
@@ -98,8 +98,9 @@
       </a>
 
       <!-- Identity card -->
-      <div class="profile-card">
-        <div class="profile-id-row">
+      <div class="profile-card" style="padding:0;">
+        <div class="profile-id-banner" id="profile-id-banner"></div>
+        <div class="profile-id-row" style="padding: 0 var(--space-3) var(--space-3);">
           <div class="profile-id-avatar-wrap">
             <span class="portal-avatar portal-avatar-xl" id="profile-avatar" aria-hidden="true"></span>
             <button type="button" class="profile-avatar-edit" id="avatar-edit-btn" aria-label="Change profile photo">
@@ -376,6 +377,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
 <script src="shell.js?v=3"></script>
-<script src="profile.js?v=11"></script>
+<script src="profile.js?v=12"></script>
 </body>
 </html>

@@ -59,9 +59,10 @@
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
-  function avatarHtml(name, category, avatarUrl) {
-    if (avatarUrl) return '<span class="portal-avatar portal-avatar-lg portal-avatar-img"><img src="' + avatarUrl + '" alt=""></span>';
-    return '<span class="portal-avatar portal-avatar-lg"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
+  function avatarHtml(name, category, extraClass, avatarUrl) {
+    var cls = "portal-avatar portal-avatar-lg" + (extraClass ? " " + extraClass : "");
+    if (avatarUrl) return '<span class="' + cls + ' portal-avatar-img"><img src="' + avatarUrl + '" alt=""></span>';
+    return '<span class="' + cls + '"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
   }
 
   function memberMatchesFilters(m) {
@@ -111,7 +112,7 @@
       '<div class="post-card">' +
       '<a href="profile.html?id=' + encodeURIComponent(m.id) + '" style="display:block; color:inherit; text-decoration:none;">' +
       '<div class="post-head">' +
-      avatarHtml(name, m.category, m.avatar_url) +
+      avatarHtml(name, m.category, null, m.avatar_url) +
       "<div>" +
       '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
       '<div class="post-meta-row">' +
@@ -225,7 +226,7 @@
   async function loadIncoming() {
     var res = await sb
       .from("intro_requests")
-      .select("id, note, created_at, requestor:requestor_id(id, org_name, contact_name, category, borough)")
+      .select("id, note, created_at, requestor:requestor_id(id, org_name, contact_name, category, borough, avatar_url)")
       .eq("requestee_id", profile.id)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
@@ -287,12 +288,16 @@
     var intro = incomingRequests.find(function (r) { return r.id === introId; });
     if (!intro) return;
     var name = intro.requestor.org_name || intro.requestor.contact_name || "Member";
+
+    document.getElementById("intro-popup-title").textContent = name;
+    var headEl = document.getElementById("intro-popup-head");
+    var avatarEl = document.getElementById("intro-popup-avatar");
+    if (intro.requestor.category) headEl.setAttribute("data-cat", intro.requestor.category);
+    else headEl.removeAttribute("data-cat");
+    avatarEl.outerHTML = avatarHtml(name, intro.requestor.category, "thread-popup-avatar", intro.requestor.avatar_url).replace("<span", '<span id="intro-popup-avatar"');
+
     var bodyEl = document.getElementById("intro-popup-body");
     bodyEl.innerHTML =
-      '<div class="post-head" style="margin-bottom:0.75rem;">' +
-      avatarHtml(name, intro.requestor.category) +
-      "<div><p class=\"post-author-name\">" + escapeHtml(name) + "</p>" +
-      '<p class="settings-note" style="margin:0;">Requesting an introduction to you</p></div></div>' +
       (intro.note ? '<p class="post-body">' + escapeHtml(intro.note) + "</p>" : '<p class="settings-note">No reason given.</p>') +
       '<div style="display:flex; gap:0.5rem; margin-top:1rem;">' +
       '<button type="button" class="btn btn-primary btn-sm" data-action="accept" data-id="' + intro.id + '">Accept</button>' +

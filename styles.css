@@ -192,13 +192,15 @@ h1, h2, h3 { font-family: var(--font-serif); margin: 0; color: var(--color-brand
 .header-actions { display: flex; align-items: center; gap: var(--space-3); margin-right: -0.75rem; }
 .login-link { font-size: 0.88rem; font-weight: 600; color: var(--color-ink-soft); transition: color var(--dur) var(--ease); }
 .login-link:hover { color: var(--color-brand-deep); }
-.icon-btn {
+.icon-btn, .icon-btn--dark {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 50%; background: transparent;
-  color: var(--color-brand-deep); border: none;
+  width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
+.icon-btn { background: transparent; color: var(--color-brand-deep); }
 .icon-btn:hover { background: var(--color-brand-tint); }
+.icon-btn--dark { position: relative; background: rgba(255,255,255,0.1); color: #fff; }
+.icon-btn--dark:hover { background: rgba(255,255,255,0.18); }
 .header-cta { margin-left: 0.2rem; }
 .nav-toggle { display: none; }
 
@@ -1201,11 +1203,7 @@ body:has(.app-shell) { overflow: hidden; }
 .app-topbar-title { color: #fff; font-family: var(--font-serif); font-size: 1.15rem; font-weight: 600; }
 .app-topbar-spacer { flex: 1; }
 .app-topbar-actions { display: flex; align-items: center; gap: 0.5rem; }
-.app-topbar-icon {
-  position: relative; width: 40px; height: 40px; border-radius: 50%; border: none;
-  background: rgba(255,255,255,0.1); color: #fff; display: inline-flex; align-items: center; justify-content: center;
-  cursor: pointer;
-}
+.app-topbar-icon { position: relative; background: rgba(255,255,255,0.1); color: #fff; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; transition: background var(--dur) var(--ease); }
 .app-topbar-icon:hover { background: rgba(255,255,255,0.18); }
 .app-topbar-icon-badge {
   position: absolute; top: -2px; right: -2px; background: var(--color-accent); color: #fff;
@@ -1409,6 +1407,12 @@ body:has(.app-shell) { overflow: hidden; }
 .post-vote-btn[aria-pressed="true"] { color: var(--color-stamp); }
 .post-vote-count { font-size: 0.78rem; font-weight: 700; color: var(--color-ink-soft); }
 .post-vote-body { flex: 1; min-width: 0; }
+.post-action-icon {
+  display: inline-flex; align-items: center; gap: 0.4rem; background: none; border: none; cursor: pointer;
+  color: var(--color-ink-soft); font-family: inherit; font-size: 0.85rem; font-weight: 700;
+  padding: 0.4rem 0.7rem; border-radius: 999px; transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.post-action-icon:hover { background: var(--color-brand-tint); color: var(--color-brand-deep); }
 
 /* ---------- Composer & feed (reused inside app-main) ---------- */
 .composer-card { background: #fff; border-radius: var(--radius-md); border: 1px solid var(--color-border); padding: var(--space-3); }
@@ -1460,7 +1464,8 @@ body:has(.app-shell) { overflow: hidden; }
 .post-type-flag--exchange { border-color: var(--color-brand-dark);   color: var(--color-brand-dark);   background: var(--color-brand-tint); }
 .post-type-flag--coop     { border-color: var(--cat-circularity-text); color: var(--cat-circularity-text); background: var(--cat-circularity-bg); }
 .post-type-flag-slot { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1; }
-.post-card { position: relative; background: #fff; border-radius: var(--radius-md); border: 1px solid var(--color-border); padding: var(--space-3); }
+.post-card { position: relative; background: #fff; border-radius: var(--radius-md); border: 1px solid var(--color-border); padding: var(--space-3); transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.post-card:hover { transform: translateY(-3px); border-color: var(--color-brand); box-shadow: 0 14px 30px -20px rgba(42,63,46,0.3); }
 .post-card.is-exchange { border-left: 3px solid var(--color-brand-dark); }
 .post-card.is-coop { border-left: 3px solid var(--cat-circularity-text); }
 .post-repost-flag { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600; color: var(--color-brand-dark); margin-bottom: 0.6rem; }
@@ -1538,8 +1543,22 @@ body:has(.app-shell) { overflow: hidden; }
 .profile-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
 .profile-card-head h3 { font-size: 1.1rem; }
 
+.profile-id-banner {
+  height: 108px; width: 100%; border-radius: 14px 14px 0 0; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--color-brand-tint), #fff 130%);
+}
+.profile-id-banner::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background-image: radial-gradient(rgba(255,255,255,0.55) 1.5px, transparent 1.5px); background-size: 16px 16px;
+}
+.profile-id-banner[data-cat="materials"]   { background: linear-gradient(135deg, var(--cat-materials-bg), #fff 130%); }
+.profile-id-banner[data-cat="circularity"] { background: linear-gradient(135deg, var(--cat-circularity-bg), #fff 130%); }
+.profile-id-banner[data-cat="strategy"]    { background: linear-gradient(135deg, var(--cat-strategy-bg), #fff 130%); }
+.profile-id-banner[data-cat="advocacy"]    { background: linear-gradient(135deg, var(--cat-advocacy-bg), #fff 130%); }
+.profile-id-banner[data-cat="retail"]      { background: linear-gradient(135deg, var(--cat-retail-bg), #fff 130%); }
 .profile-id-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-.profile-id-avatar-wrap { position: relative; flex-shrink: 0; }
+.profile-id-avatar-wrap { position: relative; flex-shrink: 0; margin-top: -46px; }
+.profile-id-avatar-wrap .portal-avatar { border: 4px solid #fff; box-shadow: 0 10px 24px -12px rgba(0,0,0,0.35); }
 .profile-avatar-edit {
   position: absolute; bottom: 0; right: 0; width: 26px; height: 26px; border-radius: 50%;
   background: var(--color-brand-deep); color: #fff; border: 2px solid #fff;

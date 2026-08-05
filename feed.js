@@ -150,6 +150,15 @@
 
   function visibleItems() {
     var list = feedItems.slice();
+    var searchEl = document.getElementById("feed-search");
+    var query = (searchEl && searchEl.value || "").trim().toLowerCase();
+    if (query) {
+      list = list.filter(function (item) {
+        var author = item.profiles || {};
+        var name = (author.org_name || author.contact_name || "").toLowerCase();
+        return item.body.toLowerCase().indexOf(query) !== -1 || name.indexOf(query) !== -1;
+      });
+    }
     if (filterState.sort === "oldest") {
       list.sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); });
     } else if (filterState.sort === "most-relevant") {
@@ -217,7 +226,9 @@
       '<article class="post-card post-card--voteable" data-id="' + post.id + '">' +
       '<div class="post-vote-col">' +
       '<button type="button" class="post-vote-btn" data-action="like" data-id="' + post.id + '" aria-pressed="' + liked + '" aria-label="Like">' +
-      (liked ? "&#9829;" : "&#9825;") +
+      (liked
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>') +
       "</button>" +
       '<span class="post-vote-count">' + likeCount + "</span>" +
       "</div>" +
@@ -230,7 +241,9 @@
       "</div></div>" +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
       '<div class="post-actions">' +
-      '<button type="button" class="btn btn-outline btn-sm" data-action="toggle-comments" data-id="' + post.id + '">Comments (' + commentCount + ")</button>" +
+      '<button type="button" class="post-action-icon" data-action="toggle-comments" data-id="' + post.id + '" aria-label="Toggle comments">' +
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
+      "<span>" + commentCount + "</span></button>" +
       "</div>" +
       '<div class="feed-comments" data-comments-for="' + post.id + '"' + (isOpen ? "" : " hidden") + ' style="margin-top:0.6rem;">' +
       '<div class="feed-comments-list" id="comments-list-' + post.id + '" style="display:flex; flex-direction:column; gap:0.3rem; margin-bottom:0.5rem;"></div>' +
@@ -336,6 +349,8 @@
       filterState.sort = e.target.value;
       renderFeed();
     });
+
+    document.getElementById("feed-search").addEventListener("input", renderFeed);
 
     var listEl = document.getElementById("feed-list");
 

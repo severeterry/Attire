@@ -56,12 +56,15 @@
     document.getElementById("profile-org").textContent = profile.orgName ? profile.orgName : "Member since " + profile.memberSince;
 
     var catBadge = document.getElementById("profile-category-badge");
+    var idBanner = document.getElementById("profile-id-banner");
     if (profile.category) {
       catBadge.textContent = labelForCategory(profile.category);
       catBadge.setAttribute("data-cat", profile.category);
       catBadge.hidden = false;
+      if (idBanner) idBanner.setAttribute("data-cat", profile.category);
     } else {
       catBadge.hidden = true;
+      if (idBanner) idBanner.removeAttribute("data-cat");
     }
 
     var boroughBadge = document.getElementById("profile-borough-badge");
@@ -534,12 +537,15 @@
     document.getElementById("profile-org").hidden = true;
 
     var catBadge = document.getElementById("profile-category-badge");
+    var idBanner = document.getElementById("profile-id-banner");
     if (otherProfile.category) {
       catBadge.textContent = labelForCategory(otherProfile.category);
       catBadge.setAttribute("data-cat", otherProfile.category);
       catBadge.hidden = false;
+      if (idBanner) idBanner.setAttribute("data-cat", otherProfile.category);
     } else {
       catBadge.hidden = true;
+      if (idBanner) idBanner.removeAttribute("data-cat");
     }
     var boroughBadge = document.getElementById("profile-borough-badge");
     if (otherProfile.borough) {
