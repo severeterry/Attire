@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=44">
+<link rel="stylesheet" href="styles.css?v=45">
 </head>
 <body class="theme-green">
 
@@ -117,20 +117,24 @@
 <!-- Listing detail modal -->
 <div class="modal-backdrop" id="modal-backdrop">
   <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title" id="modal-panel">
+    <div class="modal-banner" id="modal-banner"></div>
     <button type="button" class="modal-close" id="modal-close" aria-label="Close">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
-    <div class="modal-head">
-      <div class="modal-badges" id="modal-badges"></div>
-      <h2 id="modal-title"></h2>
-      <p class="modal-sub" id="modal-sub"></p>
-    </div>
-    <p class="modal-desc" id="modal-desc"></p>
-    <div class="modal-note" id="modal-note" hidden></div>
-    <div class="modal-links" id="modal-links" hidden></div>
-    <div class="modal-gate">
-      <p><strong>Attire members can request direct introductions and unlock deeper contact details for organizations across the network.</strong></p>
-      <a href="membership.html" class="btn btn-primary btn-sm">Apply for Membership</a>
+    <div class="modal-body">
+      <div class="modal-logo" id="modal-logo" hidden></div>
+      <div class="modal-head">
+        <div class="modal-badges" id="modal-badges"></div>
+        <h2 id="modal-title"></h2>
+        <p class="modal-sub" id="modal-sub"></p>
+      </div>
+      <p class="modal-desc" id="modal-desc"></p>
+      <div class="modal-note" id="modal-note" hidden></div>
+      <div class="modal-links" id="modal-links" hidden></div>
+      <div class="modal-gate">
+        <p><strong>Attire members can request direct introductions and unlock deeper contact details for organizations across the network.</strong></p>
+        <a href="membership.html" class="btn btn-primary btn-sm">Apply for Membership</a>
+      </div>
     </div>
   </div>
 </div>
@@ -217,6 +221,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
-<script src="directory.js?v=3"></script>
+<script src="directory.js?v=4"></script>
 </body>
 </html>

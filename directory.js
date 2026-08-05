@@ -35,17 +35,30 @@
     return '<span class="cat-badge" data-cat="' + catId + '">' + CATEGORY_LABELS[catId] + "</span>";
   }
 
-  // Derives a logo image from a known website URL via Clearbit's public logo
-  // API (no separate logo field to source/maintain) — this.remove() on error
-  // so a domain with no logo just quietly shows nothing instead of a broken image.
-  function logoUrl(websiteUrl) {
+  // Derives a logo image from a known website URL — no separate logo field to
+  // source/maintain. Clearbit's logo API gives a clean brand mark when it has
+  // one, but its coverage of smaller independent sites is spotty; Google's
+  // favicon service covers almost any live domain as a fallback. img markup
+  // tries Clearbit first and swaps to the favicon on error (see logoImgHtml).
+  function logoUrls(websiteUrl) {
     if (!websiteUrl) return null;
     try {
       var domain = new URL(websiteUrl).hostname.replace(/^www\./, "");
-      return "https://logo.clearbit.com/" + domain;
+      return {
+        primary: "https://logo.clearbit.com/" + domain,
+        fallback: "https://www.google.com/s2/favicons?domain=" + domain + "&sz=128",
+      };
     } catch (e) {
       return null;
     }
+  }
+
+  function logoImgHtml(websiteUrl, className) {
+    var urls = logoUrls(websiteUrl);
+    if (!urls) return "";
+    return '<img class="' + className + '" src="' + escapeHtml(urls.primary) + '" alt="" loading="lazy" ' +
+      'data-fallback="' + escapeHtml(urls.fallback) + '" ' +
+      'onerror="this.onerror=null;this.src=this.dataset.fallback;">';
   }
 
   function socialLinksHtml(item) {
@@ -90,13 +103,13 @@
     card.type = "button";
     card.className = "listing-card";
     card.setAttribute("data-id", item.id);
-    var logo = logoUrl(item.websiteUrl);
+    card.setAttribute("data-cat", item.category);
     card.innerHTML =
       '<div class="listing-top">' +
         catBadge(item.category) +
         '<div class="listing-top-right">' +
           vBadge(item.verified) +
-          (logo ? '<img class="listing-logo" src="' + escapeHtml(logo) + '" alt="" loading="lazy" onerror="this.remove()">' : "") +
+          logoImgHtml(item.websiteUrl, "listing-logo") +
         "</div>" +
       "</div>" +
       "<h3>" + escapeHtml(item.name) + "</h3>" +
@@ -164,7 +177,16 @@
   var lastFocused = null;
 
   function openModal(item) {
+    document.getElementById("modal-banner").setAttribute("data-cat", item.category);
     document.getElementById("modal-badges").innerHTML = catBadge(item.category) + vBadge(item.verified);
+    var modalLogoEl = document.getElementById("modal-logo");
+    var modalLogoHtml = logoImgHtml(item.websiteUrl, "modal-logo-img");
+    if (modalLogoHtml) {
+      modalLogoEl.innerHTML = modalLogoHtml;
+      modalLogoEl.hidden = false;
+    } else {
+      modalLogoEl.hidden = true;
+    }
     document.getElementById("modal-title").textContent = item.name;
     document.getElementById("modal-sub").textContent =
       item.subcategory + " · " + item.borough + (item.yearsNote ? " · " + item.yearsNote : "");
