@@ -97,7 +97,7 @@
     if (threadsRes.error || !threadsRes.data.length) return [];
 
     var activeIds = threadsRes.data.map(function (t) { return t.id; });
-    var otherRes = await sb.from("thread_participants").select("thread_id, profiles(org_name, contact_name)")
+    var otherRes = await sb.from("thread_participants").select("thread_id, profiles(org_name, contact_name, category, avatar_url)")
       .in("thread_id", activeIds).neq("profile_id", profile.id);
     var otherByThread = {};
     (otherRes.data || []).forEach(function (r) { otherByThread[r.thread_id] = r.profiles; });
@@ -117,6 +117,7 @@
     var name = other.org_name || other.contact_name || "Member";
     return (
       '<button type="button" class="active-thread-item" data-action="open-thread-popup" data-id="' + t.id + '">' +
+      avatarHtml(name, other.category, "active-thread-avatar portal-avatar-sm", other.avatar_url) +
       '<span class="active-thread-body">' +
       '<span class="active-thread-name">' + escapeHtml(name) + "</span>" +
       '<span class="active-thread-meta">' + TIME_ICON + timeLeftLabel(t.lastMessageAt) + "</span></span>" +
@@ -133,24 +134,41 @@
   }
 
   var activeThreadPopupId = null;
+  var threadPopupParticipants = {};
 
   async function openThreadPopup(threadId) {
     activeThreadPopupId = threadId;
     document.getElementById("thread-popup-backdrop").classList.add("is-open");
     document.getElementById("thread-popup-members-list").hidden = true;
 
-    var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name)").eq("thread_id", threadId);
+    var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name, category, avatar_url)").eq("thread_id", threadId);
     var participants = partRes.data || [];
+    threadPopupParticipants = {};
+    participants.forEach(function (p) { threadPopupParticipants[p.profile_id] = p.profiles || {}; });
+
     document.getElementById("thread-popup-members-list").innerHTML = participants.map(function (p) {
       var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
-      return '<div class="context-member-item" style="padding:0.3rem 0;">' + escapeHtml(n) + "</div>";
+      var prof = p.profiles || {};
+      return '<div class="context-member-item">' + avatarHtml(n, prof.category, "portal-avatar-sm", prof.avatar_url) +
+        '<span class="context-member-name" style="color:inherit;">' + escapeHtml(n) + "</span></div>";
     }).join("");
 
     var others = participants.filter(function (p) { return p.profile_id !== profile.id; });
-    var title = others.length === 1 && others[0].profiles
-      ? (others[0].profiles.org_name || others[0].profiles.contact_name || "Member")
+    var owner = others.length === 1 ? (others[0].profiles || {}) : {};
+    var title = others.length === 1
+      ? (owner.org_name || owner.contact_name || "Member")
       : "Group (" + participants.length + ")";
     document.getElementById("thread-popup-title").textContent = title;
+
+    var headEl = document.getElementById("thread-popup-head");
+    var avatarEl = document.getElementById("thread-popup-avatar");
+    if (others.length === 1) {
+      headEl.setAttribute("data-cat", owner.category || "");
+      avatarEl.outerHTML = avatarHtml(title, owner.category, "thread-popup-avatar", owner.avatar_url).replace("<span", '<span id="thread-popup-avatar"');
+    } else {
+      headEl.removeAttribute("data-cat");
+      avatarEl.outerHTML = '<span class="portal-avatar thread-popup-avatar" id="thread-popup-avatar">' + others.length + "</span>";
+    }
 
     sb.from("thread_participants").update({ last_read_at: new Date().toISOString() })
       .eq("thread_id", threadId).eq("profile_id", profile.id).then(function () {});
@@ -166,9 +184,13 @@
     bodyEl.innerHTML = (msgRes.data || []).length
       ? msgRes.data.map(function (m) {
           var mine = m.sender_id === profile.id;
-          return '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+          var sender = threadPopupParticipants[m.sender_id] || {};
+          var senderName = sender.org_name || sender.contact_name || "Member";
+          return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
+            (mine ? "" : avatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)) +
+            '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
             (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
-            (m.body ? escapeHtml(m.body) : "") + "</div>";
+            (m.body ? escapeHtml(m.body) : "") + "</div></div>";
         }).join("")
       : '<p class="settings-note">No messages yet.</p>';
     bodyEl.scrollTop = bodyEl.scrollHeight;

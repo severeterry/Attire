@@ -71,11 +71,12 @@
   var TIME_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
 
   async function fetchMyCoopThreads() {
-    var myPoolsRes = await sb.from("pooling_threads").select("id, title, chat_thread_id").eq("organizer_id", profile.id).not("chat_thread_id", "is", null);
+    var orgSelect = "id, title, chat_thread_id, profiles(org_name, contact_name, category, avatar_url)";
+    var myPoolsRes = await sb.from("pooling_threads").select(orgSelect).eq("organizer_id", profile.id).not("chat_thread_id", "is", null);
     var partRes = await sb.from("pooling_participants").select("pooling_thread_id").eq("profile_id", profile.id).eq("status", "accepted");
     var participantPoolIds = (partRes.data || []).map(function (r) { return r.pooling_thread_id; });
     var participantPoolsRes = participantPoolIds.length
-      ? await sb.from("pooling_threads").select("id, title, chat_thread_id").in("id", participantPoolIds).not("chat_thread_id", "is", null)
+      ? await sb.from("pooling_threads").select(orgSelect).in("id", participantPoolIds).not("chat_thread_id", "is", null)
       : { data: [] };
 
     var poolsById = {};
@@ -102,14 +103,17 @@
       if (!t) continue;
       var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
         .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id] || "1970-01-01");
-      threads.push({ id: t.id, title: pool.title, lastMessageAt: t.last_message_at, unread: unreadRes.count || 0 });
+      threads.push({ id: t.id, title: pool.title, organizer: pool.profiles || {}, lastMessageAt: t.last_message_at, unread: unreadRes.count || 0 });
     }
     return threads;
   }
 
   function activeThreadItemHtml(t) {
+    var organizer = t.organizer || {};
+    var organizerName = organizer.org_name || organizer.contact_name || "Organizer";
     return (
-      '<button type="button" class="active-thread-item" data-action="open-thread-popup" data-id="' + t.id + '" data-title="' + escapeHtml(t.title) + '">' +
+      '<button type="button" class="active-thread-item" data-action="open-thread-popup" data-id="' + t.id + '" data-title="' + escapeHtml(t.title) + '" data-cat="' + (organizer.category || "") + '" data-avatar="' + escapeHtml(organizer.avatar_url || "") + '">' +
+      avatarHtml(organizerName, organizer.category, "active-thread-avatar", organizer.avatar_url) +
       '<span class="active-thread-body">' +
       '<span class="active-thread-name">' + escapeHtml(t.title) + "</span>" +
       '<span class="active-thread-meta">' + TIME_ICON + timeLeftLabel(t.lastMessageAt) + "</span></span>" +
@@ -126,18 +130,30 @@
   }
 
   var activeThreadPopupId = null;
+  var threadPopupParticipants = {};
 
-  async function openThreadPopup(threadId, titleOverride) {
+  async function openThreadPopup(threadId, titleOverride, organizerCategory, organizerAvatarUrl) {
     activeThreadPopupId = threadId;
     document.getElementById("thread-popup-backdrop").classList.add("is-open");
     document.getElementById("thread-popup-members-list").hidden = true;
     document.getElementById("thread-popup-title").textContent = titleOverride || "Conversation";
 
-    var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name)").eq("thread_id", threadId);
+    var headEl = document.getElementById("thread-popup-head");
+    var avatarEl = document.getElementById("thread-popup-avatar");
+    if (organizerCategory || organizerAvatarUrl) headEl.setAttribute("data-cat", organizerCategory || "");
+    else headEl.removeAttribute("data-cat");
+    avatarEl.outerHTML = avatarHtml(titleOverride || "Co-Op", organizerCategory, "thread-popup-avatar", organizerAvatarUrl).replace("<span", '<span id="thread-popup-avatar"');
+
+    var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name, category, avatar_url)").eq("thread_id", threadId);
     var participants = partRes.data || [];
+    threadPopupParticipants = {};
+    participants.forEach(function (p) { threadPopupParticipants[p.profile_id] = p.profiles || {}; });
+
     document.getElementById("thread-popup-members-list").innerHTML = participants.map(function (p) {
       var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
-      return '<div class="context-member-item" style="padding:0.3rem 0;">' + escapeHtml(n) + "</div>";
+      var prof = p.profiles || {};
+      return '<div class="context-member-item">' + avatarHtml(n, prof.category, "portal-avatar-sm", prof.avatar_url) +
+        '<span class="context-member-name" style="color:inherit;">' + escapeHtml(n) + "</span></div>";
     }).join("");
 
     sb.from("thread_participants").update({ last_read_at: new Date().toISOString() })
@@ -154,9 +170,14 @@
     bodyEl.innerHTML = (msgRes.data || []).length
       ? msgRes.data.map(function (m) {
           var mine = m.sender_id === profile.id;
-          return '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+          var sender = threadPopupParticipants[m.sender_id] || {};
+          var senderName = sender.org_name || sender.contact_name || "Member";
+          return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
+            (mine ? "" : avatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)) +
+            '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+            (mine ? "" : '<span class="chat-bubble-sender">' + escapeHtml(senderName) + "</span>") +
             (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
-            (m.body ? escapeHtml(m.body) : "") + "</div>";
+            (m.body ? escapeHtml(m.body) : "") + "</div></div>";
         }).join("")
       : '<p class="settings-note">No messages yet.</p>';
     bodyEl.scrollTop = bodyEl.scrollHeight;
@@ -183,9 +204,10 @@
     return Math.round(hr / 24) + "d";
   }
 
-  function avatarHtml(name, category, avatarUrl) {
-    if (avatarUrl) return '<span class="portal-avatar portal-avatar-img"><img src="' + avatarUrl + '" alt=""></span>';
-    return '<span class="portal-avatar"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
+  function avatarHtml(name, category, extraClass, avatarUrl) {
+    var cls = "portal-avatar" + (extraClass ? " " + extraClass : "");
+    if (avatarUrl) return '<span class="' + cls + ' portal-avatar-img"><img src="' + avatarUrl + '" alt=""></span>';
+    return '<span class="' + cls + '"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
   }
 
   function labelForPoolCategory(cat) {
@@ -263,7 +285,7 @@
       '<article class="post-card is-coop" data-id="' + pool.id + '">' +
       '<div class="post-type-flag-slot"><span class="post-type-flag post-type-flag--coop">The Co-Op</span></div>' +
       '<div class="post-head">' +
-      avatarHtml(name, organizer.category, organizer.avatar_url) +
+      avatarHtml(name, organizer.category, null, organizer.avatar_url) +
       "<div>" +
       '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
       '<div class="post-meta-row"><span>' + relativeTime(new Date(pool.created_at).getTime()) + " ago</span></div>" +
@@ -713,7 +735,7 @@
     document.getElementById("active-coop-threads-list").addEventListener("click", function (e) {
       var item = e.target.closest('[data-action="open-thread-popup"]');
       if (!item) return;
-      openThreadPopup(item.dataset.id, item.dataset.title);
+      openThreadPopup(item.dataset.id, item.dataset.title, item.dataset.cat, item.dataset.avatar);
     });
 
     document.getElementById("thread-popup-close").addEventListener("click", function () {

@@ -163,9 +163,11 @@
     messagesEl.innerHTML = (msgRes.data || []).length
       ? msgRes.data.map(function (m) {
           var mine = m.sender_id === profile.id;
-          return '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+          return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
+            (mine ? "" : avatarHtml(name, other.category, "chat-bubble-avatar portal-avatar-sm", other.avatar_url)) +
+            '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
             (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
-            (m.body ? escapeHtml(m.body) : "") + "</div>";
+            (m.body ? escapeHtml(m.body) : "") + "</div></div>";
         }).join("")
       : '<p class="settings-note">No messages yet.</p>';
     messagesEl.scrollTop = messagesEl.scrollHeight;

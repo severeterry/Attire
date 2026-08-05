@@ -9,6 +9,18 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  function initials(name) {
+    var parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function avatarHtml(name, category, extraClass, avatarUrl) {
+    var cls = "portal-avatar" + (extraClass ? " " + extraClass : "");
+    if (avatarUrl) return '<span class="' + cls + ' portal-avatar-img"><img src="' + escapeHtml(avatarUrl) + '" alt=""></span>';
+    return '<span class="' + cls + '"' + (category ? ' data-cat="' + category + '"' : "") + ">" + escapeHtml(initials(name)) + "</span>";
+  }
+
   document.addEventListener("DOMContentLoaded", async function () {
     if (!window.AttireAuth) return;
     var session = await window.AttireAuth.getSession();
@@ -37,6 +49,7 @@
     var imageInput = document.getElementById("thread-image-input");
 
     var threadStatus = "active";
+    var threadParticipants = {};
 
     async function uploadThreadImage(file) {
       if (!file) return null;
@@ -48,12 +61,35 @@
     }
 
     async function loadMembers() {
-      var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name)").eq("thread_id", threadId);
+      var partRes = await sb.from("thread_participants").select("profile_id, profiles(org_name, contact_name, category, avatar_url)").eq("thread_id", threadId);
+      var participants = partRes.data || [];
+      threadParticipants = {};
+      participants.forEach(function (p) { threadParticipants[p.profile_id] = p.profiles || {}; });
+
       var listEl = document.getElementById("thread-members-list");
-      listEl.innerHTML = (partRes.data || []).map(function (p) {
+      listEl.innerHTML = participants.map(function (p) {
         var n = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
-        return '<div class="context-member-item" style="padding:0.3rem 0;">' + escapeHtml(n) + "</div>";
+        var prof = p.profiles || {};
+        return '<div class="context-member-item">' + avatarHtml(n, prof.category, "portal-avatar-sm", prof.avatar_url) +
+          '<span class="context-member-name" style="color:inherit;">' + escapeHtml(n) + "</span></div>";
       }).join("");
+    }
+
+    async function loadIdentity() {
+      var res = await sb.from("pooling_threads").select("title, profiles(org_name, contact_name, category, avatar_url)").eq("chat_thread_id", threadId).maybeSingle();
+      var headEl = document.getElementById("thread-popup-head");
+      var avatarEl = document.getElementById("thread-popup-avatar");
+      var titleEl = document.getElementById("thread-identity-title");
+      var pool = res.data;
+      if (!pool) {
+        titleEl.textContent = "Group Chat";
+        return;
+      }
+      var organizer = pool.profiles || {};
+      var organizerName = organizer.org_name || organizer.contact_name || "Organizer";
+      titleEl.textContent = pool.title;
+      if (organizer.category) headEl.setAttribute("data-cat", organizer.category);
+      avatarEl.outerHTML = avatarHtml(organizerName, organizer.category, "thread-popup-avatar", organizer.avatar_url).replace("<span", '<span id="thread-popup-avatar"');
     }
 
     function markRead() {
@@ -81,7 +117,7 @@
 
       var msgRes = await sb
         .from("messages")
-        .select("id, sender_id, body, image_url, created_at, profiles(org_name, contact_name)")
+        .select("id, sender_id, body, image_url, created_at")
         .eq("thread_id", threadId)
         .order("created_at", { ascending: true });
 
@@ -93,9 +129,14 @@
       messagesEl.innerHTML = msgRes.data.length
         ? msgRes.data.map(function (m) {
             var mine = m.sender_id === profile.id;
-            return '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+            var sender = threadParticipants[m.sender_id] || {};
+            var senderName = sender.org_name || sender.contact_name || "Member";
+            return '<div class="chat-bubble-row from-' + (mine ? "me" : "them") + '">' +
+              (mine ? "" : avatarHtml(senderName, sender.category, "chat-bubble-avatar portal-avatar-sm", sender.avatar_url)) +
+              '<div class="chat-bubble from-' + (mine ? "me" : "them") + '">' +
+              (mine ? "" : '<span class="chat-bubble-sender">' + escapeHtml(senderName) + "</span>") +
               (m.image_url ? '<img class="chat-bubble-img" src="' + escapeHtml(m.image_url) + '" alt="">' : "") +
-              (m.body ? escapeHtml(m.body) : "") + "</div>";
+              (m.body ? escapeHtml(m.body) : "") + "</div></div>";
           }).join("")
         : '<p class="settings-note">No messages yet.</p>';
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -132,7 +173,7 @@
       });
     });
 
-    loadMembers();
-    loadThread();
+    loadIdentity();
+    loadMembers().then(loadThread);
   });
 })();
