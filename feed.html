@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=45">
+<link rel="stylesheet" href="styles.css?v=46">
 </head>
 <body class="portal-page">
 
@@ -98,14 +98,14 @@
       </main>
 
       <aside class="app-context">
-        <div class="app-context-section">
+        <div class="app-context-section app-context-section--card app-context-section--neutral">
           <p class="app-context-kicker">About</p>
           <h3>The Feed</h3>
           <p>Everything happening across the network in one place — regular updates, plus a preview of new Exchange listings and Co-Op pools as they're posted. Open to every member, any tier.</p>
         </div>
-        <div class="app-context-section">
-          <p class="app-context-kicker">Recent activity</p>
-          <div id="feed-recent-list"></div>
+        <div class="app-context-section app-context-section--card app-context-section--neutral">
+          <p class="app-context-kicker">Trending</p>
+          <div id="feed-recent-list" class="app-context-trending-list"></div>
         </div>
       </aside>
     </div>
@@ -120,6 +120,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=6"></script>
 <script src="shell.js?v=3"></script>
-<script src="feed.js?v=5"></script>
+<script src="feed.js?v=6"></script>
 </body>
 </html>

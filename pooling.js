@@ -115,17 +115,29 @@
     if (countEl) countEl.textContent = visible.length + (visible.length === 1 ? " Co-Op" : " Co-Ops");
   }
 
+  var trendingPoolId = null;
+
+  async function fetchTrending() {
+    var res = await sb.from("trending_posts").select("post_id").eq("scope", "coop").maybeSingle();
+    trendingPoolId = res.error || !res.data ? null : res.data.post_id;
+  }
+
+  function recentPoolHtml(p, isTrending) {
+    var organizer = p.profiles || {};
+    var name = organizer.org_name || organizer.contact_name || "Member";
+    return '<a class="app-context-recent-item' + (isTrending ? ' app-context-recent-item--trending' : '') + '" href="pooling.html?id=' + encodeURIComponent(p.id) + '">' +
+      (isTrending ? '<span class="trending-flame" aria-hidden="true">🔥</span>' : '') +
+      escapeHtml(p.title) + "<span>Organized by " + escapeHtml(name) + "</span></a>";
+  }
+
   function renderRecent() {
     var recentEl = document.getElementById("pooling-recent-list");
     if (!recentEl) return;
-    var recent = pools.slice(0, 5);
-    recentEl.innerHTML = recent.length
-      ? recent.map(function (p) {
-          var organizer = p.profiles || {};
-          var name = organizer.org_name || organizer.contact_name || "Member";
-          return '<a class="app-context-recent-item" href="pooling.html?id=' + encodeURIComponent(p.id) + '">' + escapeHtml(p.title) + "<span>Organized by " + escapeHtml(name) + "</span></a>";
-        }).join("")
-      : '<p class="settings-note">No Co-Ops yet.</p>';
+    var trendingPool = trendingPoolId ? pools.find(function (p) { return p.id === trendingPoolId; }) : null;
+    var rest = pools.filter(function (p) { return !trendingPool || p.id !== trendingPool.id; }).slice(0, 8);
+
+    var html = (trendingPool ? recentPoolHtml(trendingPool, true) : "") + rest.map(function (p) { return recentPoolHtml(p, false); }).join("");
+    recentEl.innerHTML = html || '<p class="settings-note">No Co-Ops yet.</p>';
   }
 
   function setupCreateForm() {
@@ -477,6 +489,7 @@
 
     setupCreateForm();
     pools = await fetchPools();
+    await fetchTrending();
     renderPoolList();
     renderRecent();
 

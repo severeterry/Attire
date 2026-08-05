@@ -137,18 +137,30 @@
     if (countEl) countEl.textContent = posts.length + (posts.length === 1 ? " listing" : " listings");
   }
 
+  var trendingPostId = null;
+
+  async function fetchTrending() {
+    var res = await sb.from("trending_posts").select("post_id").eq("scope", "exchange").maybeSingle();
+    trendingPostId = res.error || !res.data ? null : res.data.post_id;
+  }
+
+  function recentItemHtml(p, isTrending) {
+    var author = p.profiles || {};
+    var name = author.org_name || author.contact_name || "Member";
+    var preview = p.body.length > 60 ? p.body.slice(0, 60) + "…" : p.body;
+    return '<a class="app-context-recent-item' + (isTrending ? ' app-context-recent-item--trending' : '') + '" href="#" data-scroll-to="' + p.id + '">' +
+      (isTrending ? '<span class="trending-flame" aria-hidden="true">🔥</span>' : '') +
+      escapeHtml(preview) + "<span>" + escapeHtml(name) + "</span></a>";
+  }
+
   function renderRecent() {
     var recentEl = document.getElementById("exchange-recent-list");
     if (!recentEl) return;
-    var recent = dealPosts.slice(0, 5);
-    recentEl.innerHTML = recent.length
-      ? recent.map(function (p) {
-          var author = p.profiles || {};
-          var name = author.org_name || author.contact_name || "Member";
-          var preview = p.body.length > 60 ? p.body.slice(0, 60) + "…" : p.body;
-          return '<a class="app-context-recent-item" href="#" data-scroll-to="' + p.id + '">' + escapeHtml(preview) + "<span>" + escapeHtml(name) + "</span></a>";
-        }).join("")
-      : '<p class="settings-note">No listings yet.</p>';
+    var trendingPost = trendingPostId ? dealPosts.find(function (p) { return p.id === trendingPostId; }) : null;
+    var rest = dealPosts.filter(function (p) { return !trendingPost || p.id !== trendingPost.id; }).slice(0, 8);
+
+    var html = (trendingPost ? recentItemHtml(trendingPost, true) : "") + rest.map(function (p) { return recentItemHtml(p, false); }).join("");
+    recentEl.innerHTML = html || '<p class="settings-note">No listings yet.</p>';
   }
 
   var respondPostId = null;
@@ -257,6 +269,7 @@
 
     dealPosts = await fetchDealPosts();
     responseCounts = await fetchResponseCounts(dealPosts.map(function (p) { return p.id; }));
+    await fetchTrending();
     renderFeed();
     renderRecent();
 

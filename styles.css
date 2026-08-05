@@ -1316,7 +1316,21 @@ body:has(.app-shell) { overflow: hidden; }
 .app-context-section--coop { background: var(--cat-circularity-bg); border-color: var(--cat-circularity-text); }
 .app-context-section--coop .app-context-kicker,
 .app-context-section--coop h3 { color: var(--cat-circularity-text); }
+.app-context-section--neutral { background: var(--color-brand-tint); border-color: var(--color-brand-dark); }
+.app-context-section--neutral .app-context-kicker,
+.app-context-section--neutral h3 { color: var(--color-brand-dark); }
 .app-context-recent-item span { display: block; font-size: 0.72rem; color: var(--color-dark-text-faint); margin-top: 0.15rem; }
+
+/* Trending panel — scrollable list capped to a fixed height so it never
+   pushes the rest of the sidebar down, with the algorithmically-picked
+   top post pinned first and visually called out. */
+.app-context-trending-list { max-height: 280px; overflow-y: auto; }
+.app-context-recent-item--trending {
+  position: relative; padding-left: 1.3rem; font-weight: 600;
+  background: rgba(255,255,255,0.06); border-radius: var(--radius-sm); margin: 0 -0.4rem 0.2rem; padding-right: 0.4rem; padding-top: 0.55rem;
+}
+.app-context-section--card .app-context-recent-item--trending { background: rgba(0,0,0,0.05); }
+.trending-flame { position: absolute; left: 0.35rem; top: 0.6rem; font-size: 0.8rem; line-height: 1; }
 
 /* ---------- Sort/filter toolbar above a feed list ---------- */
 .app-main-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }

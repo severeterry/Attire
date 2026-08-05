@@ -255,19 +255,32 @@
     if (countEl) countEl.textContent = visible.length + (visible.length === 1 ? " post" : " posts");
   }
 
+  var trendingItemId = null;
+
+  async function fetchTrending() {
+    var res = await sb.from("trending_posts").select("post_id").eq("scope", "feed").maybeSingle();
+    trendingItemId = res.error || !res.data ? null : res.data.post_id;
+  }
+
+  function recentItemHtml(item, isTrending) {
+    var author = item.profiles || {};
+    var name = author.org_name || author.contact_name || "Member";
+    var preview = item.body.length > 60 ? item.body.slice(0, 60) + "…" : item.body;
+    var tag = item.source === "exchange" ? " · The Exchange" : item.source === "coop" ? " · The Co-Op" : "";
+    return '<a class="app-context-recent-item' + (isTrending ? ' app-context-recent-item--trending' : '') + '" href="#" data-scroll-to="' + item.id + '">' +
+      (isTrending ? '<span class="trending-flame" aria-hidden="true">🔥</span>' : '') +
+      escapeHtml(preview) + "<span>" + escapeHtml(name) + tag + "</span></a>";
+  }
+
   function renderRecent() {
     var recentEl = document.getElementById("feed-recent-list");
     if (!recentEl) return;
-    var recent = feedItems.slice().sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); }).slice(0, 5);
-    recentEl.innerHTML = recent.length
-      ? recent.map(function (item) {
-          var author = item.profiles || {};
-          var name = author.org_name || author.contact_name || "Member";
-          var preview = item.body.length > 60 ? item.body.slice(0, 60) + "…" : item.body;
-          var tag = item.source === "exchange" ? " · The Exchange" : item.source === "coop" ? " · The Co-Op" : "";
-          return '<a class="app-context-recent-item" href="#" data-scroll-to="' + item.id + '">' + escapeHtml(preview) + "<span>" + escapeHtml(name) + tag + "</span></a>";
-        }).join("")
-      : '<p class="settings-note">No activity yet.</p>';
+    var sorted = feedItems.slice().sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+    var trendingItem = trendingItemId ? sorted.find(function (i) { return i.id === trendingItemId; }) : null;
+    var rest = sorted.filter(function (i) { return !trendingItem || i.id !== trendingItem.id; }).slice(0, 8);
+
+    var html = (trendingItem ? recentItemHtml(trendingItem, true) : "") + rest.map(function (i) { return recentItemHtml(i, false); }).join("");
+    recentEl.innerHTML = html || '<p class="settings-note">No activity yet.</p>';
   }
 
   document.addEventListener("DOMContentLoaded", async function () {
@@ -290,6 +303,7 @@
 
     await fetchMyLikes();
     await loadFeedItems();
+    await fetchTrending();
     renderFeed();
     renderRecent();
 
