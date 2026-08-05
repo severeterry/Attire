@@ -53,12 +53,18 @@
     }
   }
 
-  function logoImgHtml(websiteUrl, className) {
+  // Removes the image entirely rather than showing it stretched and blurry:
+  // if Clearbit 404s, tries the Google favicon fallback once; if that also
+  // fails, or if whatever loaded is smaller than minNaturalPx (so it'd have
+  // to be upscaled to fill the display size), the element removes itself.
+  function logoImgHtml(websiteUrl, className, minNaturalPx) {
     var urls = logoUrls(websiteUrl);
     if (!urls) return "";
+    var min = minNaturalPx || 64;
     return '<img class="' + className + '" src="' + escapeHtml(urls.primary) + '" alt="" loading="lazy" ' +
-      'data-fallback="' + escapeHtml(urls.fallback) + '" ' +
-      'onerror="this.onerror=null;this.src=this.dataset.fallback;">';
+      'data-fallback="' + escapeHtml(urls.fallback) + '" data-min="' + min + '" data-tried="0" ' +
+      "onerror=\"if(this.dataset.tried==='0'){this.dataset.tried='1';this.src=this.dataset.fallback;}else{this.remove();}\" " +
+      'onload="if(this.naturalWidth&&this.naturalWidth<Number(this.dataset.min)){this.remove();}">';
   }
 
   function socialLinksHtml(item) {
