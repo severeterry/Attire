@@ -95,21 +95,46 @@
     likedPostIds = new Set((res.data || []).map(function (r) { return r.post_id; }));
   }
 
+  var likedCommentIds = new Set();
+
+  function commentLikeCountOf(c) {
+    return (c.comment_likes && c.comment_likes[0] && c.comment_likes[0].count) || 0;
+  }
+
+  function commentHtml(c) {
+    var author = c.profiles || {};
+    var name = author.org_name || author.contact_name || "Member";
+    var liked = likedCommentIds.has(c.id);
+    return (
+      '<div class="feed-comment-row" style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">' +
+      '<p class="settings-note" style="margin:0;"><strong>' + escapeHtml(name) + ":</strong> " + escapeHtml(c.body) + "</p>" +
+      '<button type="button" class="post-action-icon post-action-icon--sm" data-action="like-comment" data-id="' + c.id + '" aria-pressed="' + liked + '" aria-label="Like comment">' +
+      (liked
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>'
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>') +
+      "<span>" + commentLikeCountOf(c) + "</span></button>" +
+      "</div>"
+    );
+  }
+
   async function loadComments(postId) {
     var res = await sb
       .from("post_comments")
-      .select("id, body, created_at, profiles(org_name, contact_name)")
+      .select("id, body, created_at, profiles!post_comments_author_id_fkey(org_name, contact_name), comment_likes(count)")
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
     var listEl = document.getElementById("comments-list-" + postId);
     if (!listEl) return;
     var comments = res.data || [];
+
+    if (comments.length) {
+      var commentIds = comments.map(function (c) { return c.id; });
+      var myLikesRes = await sb.from("comment_likes").select("comment_id").eq("profile_id", profile.id).in("comment_id", commentIds);
+      (myLikesRes.data || []).forEach(function (r) { likedCommentIds.add(r.comment_id); });
+    }
+
     listEl.innerHTML = comments.length
-      ? comments.map(function (c) {
-          var author = c.profiles || {};
-          var name = author.org_name || author.contact_name || "Member";
-          return '<p class="settings-note"><strong>' + escapeHtml(name) + ":</strong> " + escapeHtml(c.body) + "</p>";
-        }).join("")
+      ? comments.map(commentHtml).join("")
       : '<p class="settings-note">No comments yet.</p>';
   }
 
@@ -375,6 +400,25 @@
         if (openComments.has(pid)) openComments.delete(pid);
         else openComments.add(pid);
         renderFeed();
+        return;
+      }
+
+      var likeCommentBtn = e.target.closest('[data-action="like-comment"]');
+      if (likeCommentBtn) {
+        var commentId = likeCommentBtn.dataset.id;
+        var commentAlreadyLiked = likedCommentIds.has(commentId);
+        var commentPostId = likeCommentBtn.closest(".feed-comments").dataset.commentsFor;
+        likeCommentBtn.disabled = true;
+        var commentOp = commentAlreadyLiked
+          ? sb.from("comment_likes").delete().eq("comment_id", commentId).eq("profile_id", profile.id)
+          : sb.from("comment_likes").insert({ comment_id: commentId, profile_id: profile.id });
+        commentOp.then(function (res) {
+          likeCommentBtn.disabled = false;
+          if (res.error) return;
+          if (commentAlreadyLiked) likedCommentIds.delete(commentId);
+          else likedCommentIds.add(commentId);
+          loadComments(commentPostId);
+        });
       }
     });
 
