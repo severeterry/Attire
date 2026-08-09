@@ -244,7 +244,7 @@
       "</div>" +
       '<div class="feed-comments" data-comments-for="' + post.id + '"' + (isOpen ? "" : " hidden") + ' style="margin-top:0.6rem;">' +
       '<div class="feed-comments-list" id="comments-list-' + post.id + '" style="display:flex; flex-direction:column; gap:0.3rem; margin-bottom:0.5rem;"></div>' +
-      '<form class="chat-compose" data-post-id="' + post.id + '">' +
+      '<form class="chat-compose chat-compose--light" data-post-id="' + post.id + '">' +
       '<input type="text" placeholder="Write a comment&hellip;" required>' +
       '<button type="submit" class="icon-btn" aria-label="Send comment"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg></button>' +
       "</form>" +

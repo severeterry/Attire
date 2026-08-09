@@ -1284,6 +1284,11 @@ body:has(.app-shell) { overflow: hidden; }
 .chat-compose input:focus { outline: none; border-color: var(--color-brand); }
 .chat-compose .icon-btn { background: var(--color-brand); color: #fff; }
 .chat-compose .icon-btn:hover { background: var(--color-brand-dark); }
+/* Light variant — Feed's inline comment box lives inside a white post
+   card, not the dark messenger panel .chat-compose was built for, so the
+   white-on-near-transparent input above is invisible there without this. */
+.chat-compose--light input { background: #fff; color: var(--color-ink); border-color: var(--color-border); }
+.chat-compose--light input::placeholder { color: var(--color-ink-soft); }
 .chat-attach-preview { width: 36px; height: 36px; border-radius: var(--radius-sm); object-fit: cover; }
 .chat-bubble-img { display: block; max-width: 220px; border-radius: var(--radius-sm); margin-bottom: 0.3rem; }
 
