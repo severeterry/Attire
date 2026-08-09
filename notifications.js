@@ -21,6 +21,7 @@
     pool_new_participant: function (p) { return { label: "Someone requested to join a Co-Op you organized", href: "pooling.html?id=" + p.pooling_thread_id }; },
     pool_added_by_organizer: function (p) { return { label: "You were added to a Co-Op", href: "pooling.html?id=" + p.pooling_thread_id }; },
     pool_ready: function (p) { return { label: "Your Co-Op reached its minimum — the group chat is ready", href: "thread.html?id=" + p.thread_id }; },
+    pool_terms_updated: function (p) { return { label: "The organizer updated this Co-Op's terms", href: "pooling.html?id=" + p.pooling_thread_id }; },
     pool_closing_soon: function (p) { return { label: "A Co-Op you joined is closing soon", href: "pooling.html?id=" + p.pooling_thread_id }; },
     weekly_digest: function () { return { label: "Your weekly Exchange digest is ready", href: "member-portal.html?view=deal" }; },
   };

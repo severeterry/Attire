@@ -224,16 +224,7 @@
     var isOpen = openComments.has(post.id);
 
     return (
-      '<article class="post-card post-card--voteable" data-id="' + post.id + '">' +
-      '<div class="post-vote-col">' +
-      '<button type="button" class="post-vote-btn" data-action="like" data-id="' + post.id + '" aria-pressed="' + liked + '" aria-label="Like">' +
-      (liked
-        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>'
-        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>') +
-      "</button>" +
-      '<span class="post-vote-count">' + likeCount + "</span>" +
-      "</div>" +
-      '<div class="post-vote-body">' +
+      '<article class="post-card" data-id="' + post.id + '">' +
       '<div class="post-head">' +
       '<a href="' + authorLink + '">' + avatarHtml(name, author.category, author.avatar_url) + "</a>" +
       "<div>" +
@@ -242,6 +233,11 @@
       "</div></div>" +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
       '<div class="post-actions">' +
+      '<button type="button" class="post-action-icon" data-action="like" data-id="' + post.id + '" aria-pressed="' + liked + '" aria-label="Like">' +
+      (liked
+        ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>'
+        : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>') +
+      "<span>" + likeCount + "</span></button>" +
       '<button type="button" class="post-action-icon" data-action="toggle-comments" data-id="' + post.id + '" aria-label="Toggle comments">' +
       '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
       "<span>" + commentCount + "</span></button>" +
@@ -252,7 +248,6 @@
       '<input type="text" placeholder="Write a comment&hellip;" required>' +
       '<button type="submit" class="icon-btn" aria-label="Send comment"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg></button>' +
       "</form>" +
-      "</div>" +
       "</div>" +
       "</article>"
     );
