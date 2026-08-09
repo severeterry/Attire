@@ -71,7 +71,7 @@
     if (!threads.length) return [];
     var allIds = threads.map(function (t) { return t.id; });
 
-    var poolRes = await sb.from("pooling_threads").select("chat_thread_id, title, profiles(org_name, contact_name, category, avatar_url)").in("chat_thread_id", allIds);
+    var poolRes = await sb.from("pooling_threads").select("chat_thread_id, title, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url)").in("chat_thread_id", allIds);
     var poolByThread = {};
     (poolRes.data || []).forEach(function (p) { poolByThread[p.chat_thread_id] = p; });
 

@@ -92,7 +92,7 @@
     }
 
     async function loadIdentity() {
-      var res = await sb.from("pooling_threads").select("title, profiles(org_name, contact_name, category, avatar_url)").eq("chat_thread_id", threadId).maybeSingle();
+      var res = await sb.from("pooling_threads").select("title, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url)").eq("chat_thread_id", threadId).maybeSingle();
       var headEl = document.getElementById("thread-popup-head");
       var avatarEl = document.getElementById("thread-popup-avatar");
       var titleEl = document.getElementById("thread-identity-title");

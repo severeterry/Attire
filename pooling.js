@@ -71,7 +71,7 @@
   var TIME_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
 
   async function fetchMyCoopThreads() {
-    var orgSelect = "id, title, chat_thread_id, profiles(org_name, contact_name, category, avatar_url)";
+    var orgSelect = "id, title, chat_thread_id, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url)";
     var myPoolsRes = await sb.from("pooling_threads").select(orgSelect).eq("organizer_id", profile.id).not("chat_thread_id", "is", null);
     var partRes = await sb.from("pooling_participants").select("pooling_thread_id").eq("profile_id", profile.id).eq("status", "accepted");
     var participantPoolIds = (partRes.data || []).map(function (r) { return r.pooling_thread_id; });
@@ -266,7 +266,7 @@
   async function fetchPools() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, description, category, moq, unit_cost, production_run_details, service_type, cost_per_member_estimate, logistics_notes, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, image_url, profiles(org_name, contact_name, category, avatar_url)")
+      .select("id, title, description, category, moq, unit_cost, production_run_details, service_type, cost_per_member_estimate, logistics_notes, target_group_size, participant_cap, closes_at, status, created_at, organizer_id, image_url, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     var poolList = res.data;

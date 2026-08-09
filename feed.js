@@ -64,7 +64,7 @@
   async function fetchPosts() {
     var res = await sb
       .from("posts")
-      .select("id, body, created_at, author_id, profiles(org_name, contact_name, category, avatar_url, tier), post_likes(count), post_comments(count)")
+      .select("id, body, created_at, author_id, profiles!posts_author_id_fkey(org_name, contact_name, category, avatar_url, tier), post_likes(count), post_comments(count)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     return res.data;
@@ -83,7 +83,7 @@
   async function fetchCoopItems() {
     var res = await sb
       .from("pooling_threads")
-      .select("id, title, description, created_at, organizer_id, image_url, profiles(org_name, contact_name, category, avatar_url, tier)")
+      .select("id, title, description, created_at, organizer_id, image_url, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url, tier)")
       .order("created_at", { ascending: false })
       .limit(15);
     if (res.error) { console.error(res.error); return []; }
