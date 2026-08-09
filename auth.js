@@ -55,6 +55,7 @@
       isAdmin: row.is_admin || false,
       freeUntil: row.free_until || null,
       isFoundingCohort: row.is_founding_cohort || false,
+      allowContactReveal: row.allow_contact_reveal !== false,
       email: contact ? contact.email : "",
       phone: contact ? contact.phone : "",
     };

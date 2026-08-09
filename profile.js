@@ -161,6 +161,7 @@
     document.getElementById("setting-notify-deals").checked = !!profile.settings.notifyDealBoard;
     document.getElementById("setting-show-directory").checked = !!profile.settings.showInDirectory;
     document.getElementById("setting-dm-all").checked = !!profile.settings.dmFromAllMembers;
+    document.getElementById("setting-allow-contact-reveal").checked = profile.allowContactReveal;
     renderPlanManagement();
   }
 
@@ -504,6 +505,10 @@
     document.getElementById("setting-dm-all").addEventListener("change", function (e) {
       profile.settings.dmFromAllMembers = e.target.checked;
       window.AttireAuth.updateProfileFields(profile.id, { settings: profile.settings });
+    });
+    document.getElementById("setting-allow-contact-reveal").addEventListener("change", function (e) {
+      profile.allowContactReveal = e.target.checked;
+      window.AttireAuth.updateProfileFields(profile.id, { allow_contact_reveal: e.target.checked });
     });
     document.getElementById("delete-account-btn").addEventListener("click", function () {
       alert("Account deletion isn't available in this preview.");

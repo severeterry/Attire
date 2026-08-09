@@ -230,8 +230,15 @@
       pieces.push('<p class="settings-note">' + (isRequestor ? "They" : "You") + " didn&rsquo;t respond within 14 days, so this request lapsed.</p>");
     }
 
+    if (intro.status === "accepted" && intro.chat_thread_id) {
+      pieces.push('<button type="button" class="btn btn-primary btn-sm" data-action="open-thread" data-thread-id="' + intro.chat_thread_id + '">Message</button>');
+    }
     if (intro.status === "accepted" && isRequestor) {
-      pieces.push('<div id="contact-' + intro.id + '"><button type="button" class="btn btn-outline btn-sm" data-action="reveal" data-id="' + intro.id + '">Show contact info</button></div>');
+      pieces.push(
+        '<div id="contact-' + intro.id + '" style="margin-top:0.5rem;">' +
+        '<button type="button" class="btn btn-outline btn-sm" data-action="reveal" data-id="' + intro.id + '">Prefer email or phone? Show contact info</button>' +
+        "</div>"
+      );
     }
     if (intro.status === "accepted") {
       if (myFeedback !== null) {
@@ -531,7 +538,7 @@
     var res = await sb
       .from("intro_requests")
       .select(
-        "id, status, requestor_id, requestee_id, requestor_good_match, requestee_good_match, " +
+        "id, status, chat_thread_id, requestor_id, requestee_id, requestor_good_match, requestee_good_match, " +
         "requestor:requestor_id(org_name, contact_name), requestee:requestee_id(org_name, contact_name)"
       )
       .or("requestor_id.eq." + profile.id + ",requestee_id.eq." + profile.id)
@@ -754,12 +761,17 @@
       if (!btn) return;
       var introId = btn.dataset.id;
 
+      if (btn.dataset.action === "open-thread") {
+        openThreadPopup(btn.dataset.threadId);
+        return;
+      }
+
       if (btn.dataset.action === "reveal") {
         sb.rpc("get_accepted_intro_contact", { p_intro_id: introId }).maybeSingle().then(function (res) {
           var el = document.getElementById("contact-" + introId);
           if (!el) return;
           if (res.error || !res.data) {
-            el.innerHTML = '<p class="login-error" style="display:block;">Contact info isn\'t available for this request.</p>';
+            el.innerHTML = '<p class="settings-note">This member prefers to keep conversations in Attire messaging &mdash; use the Message button above.</p>';
             return;
           }
           el.innerHTML = '<p class="settings-note">' + escapeHtml(res.data.email || "") +
