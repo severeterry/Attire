@@ -181,7 +181,7 @@
   }
 
   function linkHrefFor(item) {
-    if (item.source === "exchange") return "member-portal.html?view=deal";
+    if (item.source === "exchange") return "member-portal.html?view=deal&id=" + encodeURIComponent(item.id);
     if (item.source === "coop") return "pooling.html?id=" + encodeURIComponent(item.id);
     return null;
   }
@@ -203,6 +203,7 @@
         '<a href="' + authorLink + '">' + avatarHtml(name, author.category, author.avatar_url) + "</a>" +
         "<div>" +
         '<a class="post-author-name" href="' + authorLink + '">' + escapeHtml(name) + "</a>" +
+        (item.source === "coop" ? ' <span class="role-badge">Organizer</span>' : "") +
         '<div class="post-meta-row"><span>' + relativeTime(new Date(item.createdAt).getTime()) + " ago</span>" +
         (item.source === "exchange" ? "<span>&middot;</span><span>" + responseCountLabel(item.id) + "</span>" : "") +
         "</div>" +

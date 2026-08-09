@@ -70,63 +70,82 @@
 
   var TIME_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
 
-  async function fetchMyCoopThreads() {
-    var orgSelect = "id, title, chat_thread_id, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url)";
-    var myPoolsRes = await sb.from("pooling_threads").select(orgSelect).eq("organizer_id", profile.id).not("chat_thread_id", "is", null);
-    var partRes = await sb.from("pooling_participants").select("pooling_thread_id").eq("profile_id", profile.id).eq("status", "accepted");
-    var participantPoolIds = (partRes.data || []).map(function (r) { return r.pooling_thread_id; });
-    var participantPoolsRes = participantPoolIds.length
-      ? await sb.from("pooling_threads").select(orgSelect).in("id", participantPoolIds).not("chat_thread_id", "is", null)
-      : { data: [] };
+  // Pools I'm involved with, split into Pending (my join request hasn't
+  // been decided yet) and Active (I organize it, or I've been accepted —
+  // regardless of whether the organizer has closed it into a real group
+  // chat yet). A declined request has no separate state to track: decline
+  // deletes the pooling_participants row outright, so it just falls out of
+  // both lists on its own.
+  async function fetchMyCoopInvolvement() {
+    var orgSelect = "id, title, category, status, organizer_id, chat_thread_id, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url)";
+    var myPoolsRes = await sb.from("pooling_threads").select(orgSelect).eq("organizer_id", profile.id).neq("status", "cancelled");
+    var partRes = await sb.from("pooling_participants").select("pooling_thread_id, status").eq("profile_id", profile.id);
+    var pending = (partRes.data || []).filter(function (r) { return r.status === "pending"; }).map(function (r) { return r.pooling_thread_id; });
+    var accepted = (partRes.data || []).filter(function (r) { return r.status === "accepted"; }).map(function (r) { return r.pooling_thread_id; });
 
-    var poolsById = {};
-    (myPoolsRes.data || []).forEach(function (p) { poolsById[p.id] = p; });
-    (participantPoolsRes.data || []).forEach(function (p) { poolsById[p.id] = p; });
-    var poolList = Object.keys(poolsById).map(function (k) { return poolsById[k]; });
-    if (!poolList.length) return [];
+    var pendingPoolsRes = pending.length ? await sb.from("pooling_threads").select(orgSelect).in("id", pending) : { data: [] };
+    var acceptedPoolsRes = accepted.length ? await sb.from("pooling_threads").select(orgSelect).in("id", accepted) : { data: [] };
 
-    var threadIds = poolList.map(function (p) { return p.chat_thread_id; });
-    var threadsRes = await sb.from("threads").select("id, status, last_message_at").in("id", threadIds).eq("status", "active");
-    if (threadsRes.error || !threadsRes.data.length) return [];
-    var threadById = {};
-    threadsRes.data.forEach(function (t) { threadById[t.id] = t; });
+    var activeById = {};
+    (myPoolsRes.data || []).forEach(function (p) { activeById[p.id] = p; });
+    (acceptedPoolsRes.data || []).forEach(function (p) { activeById[p.id] = p; });
 
-    var tpRes = await sb.from("thread_participants").select("thread_id, last_read_at")
-      .eq("profile_id", profile.id).in("thread_id", threadsRes.data.map(function (t) { return t.id; }));
-    var lastReadByThread = {};
-    (tpRes.data || []).forEach(function (r) { lastReadByThread[r.thread_id] = r.last_read_at; });
-
-    var threads = [];
-    for (var i = 0; i < poolList.length; i++) {
-      var pool = poolList[i];
-      var t = threadById[pool.chat_thread_id];
-      if (!t) continue;
-      var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
-        .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id] || "1970-01-01");
-      threads.push({ id: t.id, title: pool.title, organizer: pool.profiles || {}, lastMessageAt: t.last_message_at, unread: unreadRes.count || 0 });
+    var threadIds = Object.keys(activeById).map(function (k) { return activeById[k]; })
+      .filter(function (p) { return p.chat_thread_id; }).map(function (p) { return p.chat_thread_id; });
+    var unreadByThread = {};
+    if (threadIds.length) {
+      var threadsRes = await sb.from("threads").select("id, last_message_at").in("id", threadIds).eq("status", "active");
+      var tpRes = await sb.from("thread_participants").select("thread_id, last_read_at").eq("profile_id", profile.id).in("thread_id", threadIds);
+      var lastReadByThread = {};
+      (tpRes.data || []).forEach(function (r) { lastReadByThread[r.thread_id] = r.last_read_at; });
+      for (var i = 0; i < (threadsRes.data || []).length; i++) {
+        var t = threadsRes.data[i];
+        var unreadRes = await sb.from("messages").select("id", { count: "exact", head: true })
+          .eq("thread_id", t.id).neq("sender_id", profile.id).gt("created_at", lastReadByThread[t.id] || "1970-01-01");
+        unreadByThread[t.id] = unreadRes.count || 0;
+      }
     }
-    return threads;
+
+    return {
+      pending: (pendingPoolsRes.data || []),
+      active: Object.keys(activeById).map(function (k) { return activeById[k]; })
+        .map(function (p) { return Object.assign({}, p, { unread: p.chat_thread_id ? (unreadByThread[p.chat_thread_id] || 0) : 0 }); }),
+    };
   }
 
-  function activeThreadItemHtml(t) {
-    var organizer = t.organizer || {};
+  function coopSidebarItemHtml(pool, meta) {
+    var organizer = pool.profiles || {};
     var organizerName = organizer.org_name || organizer.contact_name || "Organizer";
     return (
-      '<button type="button" class="active-thread-item" data-action="open-thread-popup" data-id="' + t.id + '" data-title="' + escapeHtml(t.title) + '" data-cat="' + (organizer.category || "") + '" data-avatar="' + escapeHtml(organizer.avatar_url || "") + '">' +
+      '<button type="button" class="active-thread-item" data-action="open-pool-modal" data-id="' + pool.id + '">' +
       avatarHtml(organizerName, organizer.category, "active-thread-avatar", organizer.avatar_url) +
       '<span class="active-thread-body">' +
-      '<span class="active-thread-name">' + escapeHtml(t.title) + "</span>" +
-      '<span class="active-thread-meta">' + TIME_ICON + timeLeftLabel(t.lastMessageAt) + "</span></span>" +
-      (t.unread > 0 ? '<span class="active-thread-unread" aria-hidden="true" title="Unread messages"></span>' : "") +
+      '<span class="active-thread-name">' + escapeHtml(pool.title) + "</span>" +
+      '<span class="active-thread-meta">' + (meta || "") + "</span></span>" +
+      (pool.unread > 0 ? '<span class="active-thread-unread" aria-hidden="true" title="Unread messages"></span>' : "") +
       "</button>"
     );
   }
 
-  async function renderActiveCoopThreads() {
-    var listEl = document.getElementById("active-coop-threads-list");
-    if (!listEl) return;
-    var threads = await fetchMyCoopThreads();
-    listEl.innerHTML = threads.length ? threads.map(activeThreadItemHtml).join("") : '<p class="settings-note">No active conversations.</p>';
+  async function renderMyCoopInvolvement() {
+    var pendingEl = document.getElementById("pending-coop-list");
+    var activeEl = document.getElementById("active-coop-threads-list");
+    if (!pendingEl && !activeEl) return;
+    var involvement = await fetchMyCoopInvolvement();
+
+    if (pendingEl) {
+      pendingEl.innerHTML = involvement.pending.length
+        ? involvement.pending.map(function (p) { return coopSidebarItemHtml(p, "Waiting on the organizer"); }).join("")
+        : '<p class="settings-note">No requests waiting.</p>';
+    }
+    if (activeEl) {
+      activeEl.innerHTML = involvement.active.length
+        ? involvement.active.map(function (p) {
+            var meta = p.organizer_id === profile.id ? "You organize this" : "Member";
+            return coopSidebarItemHtml(p, meta);
+          }).join("")
+        : '<p class="settings-note">No active Co-Ops yet.</p>';
+    }
   }
 
   var activeThreadPopupId = null;
@@ -314,7 +333,7 @@
       '<div class="post-head">' +
       avatarHtml(name, organizer.category, null, organizer.avatar_url) +
       "<div>" +
-      '<p class="post-author-name">' + escapeHtml(name) + "</p>" +
+      '<p class="post-author-name">' + escapeHtml(name) + ' <span class="role-badge">Organizer</span></p>' +
       '<div class="post-meta-row"><span>' + relativeTime(new Date(pool.created_at).getTime()) + " ago</span></div>" +
       "</div></div>" +
       (pool.image_url ? '<img class="post-attachment-img" src="' + escapeHtml(pool.image_url) + '" alt="" loading="lazy">' : "") +
@@ -327,7 +346,7 @@
       "</div>" +
       '<div class="post-actions">' +
       '<button type="button" class="btn btn-outline btn-sm" data-action="toggle-expand">See full details</button>' +
-      '<a href="pooling.html?id=' + encodeURIComponent(pool.id) + '" class="btn btn-primary btn-sm">' + (pool.status === "open" ? "View &amp; Join" : "View") + "</a>" +
+      '<button type="button" class="btn btn-primary btn-sm" data-action="open-pool-modal" data-id="' + pool.id + '">' + (pool.status === "open" ? "View &amp; Join" : "View") + "</button>" +
       "</div>" +
       "</article>"
     );
@@ -356,7 +375,7 @@
   function recentPoolHtml(p, isTrending) {
     var organizer = p.profiles || {};
     var name = organizer.org_name || organizer.contact_name || "Member";
-    return '<a class="app-context-recent-item' + (isTrending ? ' app-context-recent-item--trending' : '') + '" href="pooling.html?id=' + encodeURIComponent(p.id) + '">' +
+    return '<a class="app-context-recent-item' + (isTrending ? ' app-context-recent-item--trending' : '') + '" href="#" data-action="open-pool-modal" data-id="' + p.id + '">' +
       (isTrending ? '<span class="trending-flame" aria-hidden="true">🔥</span>' : '') +
       escapeHtml(p.title) + "<span>Organized by " + escapeHtml(name) + "</span></a>";
   }
@@ -443,12 +462,15 @@
         ? pending.map(function (p) {
             var name = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
             return (
-              '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.5rem 0; border-bottom:1px solid var(--color-border);">' +
-              '<span class="settings-note" style="margin:0;">' + escapeHtml(name) + "</span>" +
+              '<div style="padding:0.5rem 0; border-bottom:1px solid var(--color-border);">' +
+              '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">' +
+              '<span class="settings-note" style="margin:0; font-weight:700;">' + escapeHtml(name) + "</span>" +
               '<span style="display:flex; gap:0.4rem;">' +
               '<button type="button" class="btn btn-primary btn-sm" data-action="accept-participant" data-id="' + p.profile_id + '"' + (capReached ? " disabled" : "") + '>Accept</button>' +
               '<button type="button" class="btn btn-outline btn-sm" data-action="decline-participant" data-id="' + p.profile_id + '">Decline</button>' +
-              "</span></div>"
+              "</span></div>" +
+              (p.note ? '<p class="settings-note" style="margin:0.3rem 0 0;">&ldquo;' + escapeHtml(p.note) + '&rdquo;</p>' : "") +
+              "</div>"
             );
           }).join("")
         : '<p class="settings-note">None right now.</p>') +
@@ -458,9 +480,12 @@
         ? accepted.map(function (p) {
             var name = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
             return (
-              '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.5rem 0; border-bottom:1px solid var(--color-border);">' +
-              '<span class="settings-note" style="margin:0;">' + escapeHtml(name) + "</span>" +
+              '<div style="padding:0.5rem 0; border-bottom:1px solid var(--color-border);">' +
+              '<div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">' +
+              '<span class="settings-note" style="margin:0; font-weight:700;">' + escapeHtml(name) + "</span>" +
               '<button type="button" class="btn btn-outline btn-sm" data-action="remove-participant" data-id="' + p.profile_id + '">Remove</button>' +
+              "</div>" +
+              (p.note ? '<p class="settings-note" style="margin:0.3rem 0 0;">&ldquo;' + escapeHtml(p.note) + '&rdquo;</p>' : "") +
               "</div>"
             );
           }).join("")
@@ -487,26 +512,56 @@
     );
   }
 
-  async function loadDetail(poolId) {
-    document.getElementById("pooling-list-view").hidden = true;
-    document.getElementById("pooling-detail-view").hidden = false;
-    var contentEl = document.getElementById("pooling-detail-content");
+  function editFieldsHtml(pool) {
+    var isMaterials = pool.category === "materials";
+    return (
+      '<form id="pool-edit-form" class="form-card" style="margin-top:0.75rem;">' +
+      '<div class="profile-card-head"><h3>Edit Co-Op details</h3></div>' +
+      '<div class="form-field full"><label for="pool-edit-title">Title</label><input type="text" id="pool-edit-title" value="' + escapeHtml(pool.title) + '" required></div>' +
+      '<div class="form-field full"><label for="pool-edit-description">Description</label><textarea id="pool-edit-description" required>' + escapeHtml(pool.description || "") + "</textarea></div>" +
+      (isMaterials
+        ? '<div class="form-field"><label for="pool-edit-moq">MOQ</label><input type="text" id="pool-edit-moq" value="' + escapeHtml(pool.moq || "") + '"></div>' +
+          '<div class="form-field"><label for="pool-edit-unit-cost">Unit cost</label><input type="text" id="pool-edit-unit-cost" value="' + escapeHtml(pool.unit_cost || "") + '"></div>' +
+          '<div class="form-field full"><label for="pool-edit-production">Production run details</label><input type="text" id="pool-edit-production" value="' + escapeHtml(pool.production_run_details || "") + '"></div>'
+        : '<div class="form-field"><label for="pool-edit-service-type">Service type</label><input type="text" id="pool-edit-service-type" value="' + escapeHtml(pool.service_type || "") + '"></div>' +
+          '<div class="form-field"><label for="pool-edit-cost-estimate">Est. cost per member</label><input type="text" id="pool-edit-cost-estimate" value="' + escapeHtml(pool.cost_per_member_estimate || "") + '"></div>') +
+      '<div class="form-field"><label for="pool-edit-target">Minimum to close</label><input type="number" id="pool-edit-target" min="2" value="' + pool.target_group_size + '" required></div>' +
+      '<div class="form-field"><label for="pool-edit-cap">Participant cap (optional)</label><input type="number" id="pool-edit-cap" min="2" value="' + (pool.participant_cap || "") + '"></div>' +
+      '<div class="form-field"><label for="pool-edit-closes">Closes on (optional)</label><input type="datetime-local" id="pool-edit-closes" value="' + (pool.closes_at ? pool.closes_at.slice(0, 16) : "") + '"></div>' +
+      '<p class="login-error" id="pool-edit-error" hidden></p>' +
+      '<div style="display:flex; gap:0.5rem; margin-top:0.5rem;">' +
+      '<button type="submit" class="btn btn-primary btn-sm">Save changes</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" id="pool-edit-cancel-btn">Cancel</button>' +
+      "</div></form>"
+    );
+  }
+
+  async function openPoolModal(poolId) {
+    document.getElementById("pool-detail-backdrop").classList.add("is-open");
+    var contentEl = document.getElementById("pool-detail-body");
+    contentEl.innerHTML = '<p class="settings-note">Loading&hellip;</p>';
 
     var poolRes = await sb
       .from("pooling_threads")
-      .select("id, title, description, category, moq, unit_cost, production_run_details, service_type, cost_per_member_estimate, target_group_size, participant_cap, closes_at, status, organizer_id, chat_thread_id, image_url")
+      .select("id, title, description, category, moq, unit_cost, production_run_details, service_type, cost_per_member_estimate, logistics_notes, target_group_size, participant_cap, closes_at, status, organizer_id, chat_thread_id, image_url, profiles!pooling_threads_organizer_id_fkey(org_name, contact_name, category, avatar_url)")
       .eq("id", poolId)
       .single();
 
     if (poolRes.error || !poolRes.data) {
       contentEl.innerHTML = '<p class="settings-note">This Co-Op doesn\'t exist, or you don\'t have access to it.</p>';
+      document.getElementById("pool-detail-banner").removeAttribute("data-cat");
       return;
     }
     var pool = poolRes.data;
+    var organizer = pool.profiles || {};
+    var organizerName = organizer.org_name || organizer.contact_name || "Organizer";
+    var bannerEl = document.getElementById("pool-detail-banner");
+    if (organizer.category) bannerEl.setAttribute("data-cat", organizer.category);
+    else bannerEl.removeAttribute("data-cat");
 
     var partRes = await sb
       .from("pooling_participants")
-      .select("profile_id, status, profiles(org_name, contact_name)")
+      .select("profile_id, status, note, profiles(org_name, contact_name)")
       .eq("pooling_thread_id", poolId);
     var participants = partRes.data || [];
     var acceptedParticipants = participants.filter(function (p) { return p.status === "accepted"; });
@@ -518,11 +573,20 @@
       ? [pool.moq && "MOQ: " + pool.moq, pool.unit_cost && "Unit cost: " + pool.unit_cost, pool.production_run_details].filter(Boolean).join(" &middot; ")
       : [pool.service_type && "Service: " + pool.service_type, pool.cost_per_member_estimate && "Est. cost: " + pool.cost_per_member_estimate].filter(Boolean).join(" &middot; ");
 
+    // Organizer identity is surfaced up front (not just implied by which
+    // buttons happen to be visible) so anyone opening this modal — from the
+    // list, a trending link, or Feed — immediately knows who's running it.
     var html =
-      '<h1 class="section-title" style="font-size:1.6rem;">' + escapeHtml(pool.title) + "</h1>" +
+      '<div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">' +
+      avatarHtml(organizerName, organizer.category, "portal-avatar-sm", organizer.avatar_url) +
+      '<span class="settings-note" style="margin:0;">' + (isOrganizer ? "You organize this Co-Op" : "Organized by " + escapeHtml(organizerName)) + "</span>" +
+      '<span class="role-badge">Organizer</span>' +
+      "</div>" +
+      '<h2 id="pool-detail-title" style="margin:0 0 0.25rem;">' + escapeHtml(pool.title) + "</h2>" +
       '<p class="settings-note">' + labelForPoolCategory(pool.category) + "</p>" +
       (pool.image_url ? '<img class="post-attachment-img" style="margin:0.75rem 0;" src="' + escapeHtml(pool.image_url) + '" alt="" loading="lazy">' : "") +
-      '<p class="section-lede">' + escapeHtml(pool.description) + "</p>" +
+      '<p class="section-lede" style="font-size:1rem;">' + escapeHtml(pool.description) + "</p>" +
+      (isOrganizer && pool.status === "open" ? '<button type="button" class="btn btn-outline btn-sm" id="pool-edit-toggle-btn">Edit details</button><div id="pool-edit-form-slot"></div>' : "") +
       '<div class="form-card">' +
       (detailsLine ? '<p class="settings-note">' + detailsLine + "</p>" : "") +
       (pool.logistics_notes ? '<p class="settings-note">Logistics: ' + escapeHtml(pool.logistics_notes) + "</p>" : "") +
@@ -532,7 +596,7 @@
       "<ul style=\"margin-top:0.5rem;\">" +
       acceptedParticipants.map(function (p) {
         var name = p.profiles ? (p.profiles.org_name || p.profiles.contact_name || "Member") : "Member";
-        return '<li class="settings-note">' + escapeHtml(name) + "</li>";
+        return '<li class="settings-note">' + escapeHtml(name) + (p.note ? " &mdash; &ldquo;" + escapeHtml(p.note) + "&rdquo;" : "") + "</li>";
       }).join("") +
       "</ul>";
 
@@ -541,7 +605,13 @@
     if (pool.status === "open" && !isOrganizer) {
       if (!myRow) {
         html += '<button type="button" class="btn btn-primary btn-sm" id="pool-join-btn">Request to Join</button>' +
-          '<p class="login-error" id="pool-join-error" hidden></p>';
+          '<form id="pool-join-note-form" hidden style="margin-top:0.5rem;">' +
+          '<div class="form-field"><label for="pool-join-note">Note to the organizer <span class="hint">(optional)</span></label>' +
+          '<textarea id="pool-join-note" placeholder="Why you want in, what you can bring, etc."></textarea></div>' +
+          '<p class="login-error" id="pool-join-error" hidden></p>' +
+          '<div style="display:flex; gap:0.5rem;"><button type="submit" class="btn btn-primary btn-sm">Send Request</button>' +
+          '<button type="button" class="btn btn-outline btn-sm" id="pool-join-cancel-btn">Cancel</button></div>' +
+          "</form>";
       } else if (myRow.status === "pending") {
         html += '<p class="settings-note">Request sent &mdash; waiting on the organizer to accept.</p>' +
           '<button type="button" class="btn btn-outline btn-sm" id="pool-cancel-request-btn">Cancel request</button>' +
@@ -557,7 +627,7 @@
         '<p class="login-error" id="pool-close-error" hidden></p></div>';
     }
     if (pool.status === "closed" && (isOrganizer || iAmAccepted)) {
-      html += '<a href="thread.html?id=' + encodeURIComponent(pool.chat_thread_id) + '" class="btn btn-primary btn-sm" style="margin-top:0.75rem;">Go to group chat</a>';
+      html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:0.75rem;" id="pool-go-to-chat-btn">Go to group chat</button>';
     } else if (pool.status === "closed" && myRow && myRow.status === "pending") {
       html += '<p class="settings-note">This Co-Op closed before the organizer got to your request &mdash; you weren&rsquo;t included in the group.</p>';
     }
@@ -584,6 +654,51 @@
 
     contentEl.innerHTML = html;
 
+    var editToggleBtn = document.getElementById("pool-edit-toggle-btn");
+    if (editToggleBtn) {
+      editToggleBtn.addEventListener("click", function () {
+        var slot = document.getElementById("pool-edit-form-slot");
+        if (slot.innerHTML) { slot.innerHTML = ""; return; }
+        slot.innerHTML = editFieldsHtml(pool);
+        document.getElementById("pool-edit-cancel-btn").addEventListener("click", function () { slot.innerHTML = ""; });
+        document.getElementById("pool-edit-form").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var isMaterials = pool.category === "materials";
+          var closesVal = document.getElementById("pool-edit-closes").value;
+          var capVal = document.getElementById("pool-edit-cap").value;
+          var patch = {
+            title: document.getElementById("pool-edit-title").value.trim(),
+            description: document.getElementById("pool-edit-description").value.trim(),
+            target_group_size: Number(document.getElementById("pool-edit-target").value),
+            participant_cap: capVal ? Number(capVal) : null,
+            closes_at: closesVal || null,
+          };
+          if (isMaterials) {
+            patch.moq = document.getElementById("pool-edit-moq").value.trim() || null;
+            patch.unit_cost = document.getElementById("pool-edit-unit-cost").value.trim() || null;
+            patch.production_run_details = document.getElementById("pool-edit-production").value.trim() || null;
+          } else {
+            patch.service_type = document.getElementById("pool-edit-service-type").value.trim() || null;
+            patch.cost_per_member_estimate = document.getElementById("pool-edit-cost-estimate").value.trim() || null;
+          }
+          var submitBtn = e.target.querySelector('button[type="submit"]');
+          submitBtn.disabled = true;
+          sb.from("pooling_threads").update(patch).eq("id", poolId).then(function (res) {
+            submitBtn.disabled = false;
+            if (res.error) {
+              var errEl = document.getElementById("pool-edit-error");
+              errEl.textContent = res.error.message;
+              errEl.hidden = false;
+              return;
+            }
+            openPoolModal(poolId);
+            pools = pools.map(function (p) { return p.id === poolId ? Object.assign({}, p, patch) : p; });
+            renderPoolList();
+          });
+        });
+      });
+    }
+
     var logisticsSaveBtn = document.getElementById("pool-logistics-save-btn");
     if (logisticsSaveBtn) {
       logisticsSaveBtn.addEventListener("click", function () {
@@ -602,19 +717,41 @@
       });
     }
 
+    var goToChatBtn = document.getElementById("pool-go-to-chat-btn");
+    if (goToChatBtn) {
+      goToChatBtn.addEventListener("click", function () {
+        closePoolModal();
+        openThreadPopup(pool.chat_thread_id, pool.title, organizer.category, organizer.avatar_url);
+      });
+    }
+
     var joinBtn = document.getElementById("pool-join-btn");
-    if (joinBtn) {
+    var joinNoteForm = document.getElementById("pool-join-note-form");
+    if (joinBtn && joinNoteForm) {
       joinBtn.addEventListener("click", function () {
-        joinBtn.disabled = true;
-        sb.from("pooling_participants").insert({ pooling_thread_id: poolId, profile_id: profile.id }).then(function (res) {
+        joinBtn.hidden = true;
+        joinNoteForm.hidden = false;
+        document.getElementById("pool-join-note").focus();
+      });
+      document.getElementById("pool-join-cancel-btn").addEventListener("click", function () {
+        joinNoteForm.hidden = true;
+        joinBtn.hidden = false;
+      });
+      joinNoteForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var submitBtn = joinNoteForm.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        var note = document.getElementById("pool-join-note").value.trim();
+        sb.from("pooling_participants").insert({ pooling_thread_id: poolId, profile_id: profile.id, note: note || null }).then(function (res) {
           if (res.error) {
             var errEl = document.getElementById("pool-join-error");
             errEl.textContent = res.error.message;
             errEl.hidden = false;
-            joinBtn.disabled = false;
+            submitBtn.disabled = false;
             return;
           }
-          loadDetail(poolId);
+          openPoolModal(poolId);
+          renderMyCoopInvolvement();
         });
       });
     }
@@ -631,7 +768,8 @@
             cancelRequestBtn.disabled = false;
             return;
           }
-          loadDetail(poolId);
+          openPoolModal(poolId);
+          renderMyCoopInvolvement();
         });
       });
     }
@@ -652,7 +790,10 @@
             closeBtn.disabled = false;
             return;
           }
-          loadDetail(poolId);
+          openPoolModal(poolId);
+          pools = [];
+          fetchPools().then(function (p) { pools = p; renderPoolList(); });
+          renderMyCoopInvolvement();
         });
       });
     }
@@ -670,7 +811,8 @@
             leaveBtn.disabled = false;
             return;
           }
-          loadDetail(poolId);
+          openPoolModal(poolId);
+          renderMyCoopInvolvement();
         });
       });
     }
@@ -688,7 +830,9 @@
             deleteBtn.disabled = false;
             return;
           }
-          window.location.href = "pooling.html";
+          closePoolModal();
+          fetchPools().then(function (p) { pools = p; renderPoolList(); });
+          renderMyCoopInvolvement();
         });
       });
     }
@@ -708,7 +852,8 @@
         acceptBtn.disabled = true;
         sb.from("pooling_participants").update({ status: "accepted" }).eq("pooling_thread_id", poolId).eq("profile_id", acceptBtn.dataset.id).then(function (res) {
           if (res.error) { showManageError(res.error.message); acceptBtn.disabled = false; return; }
-          loadDetail(poolId);
+          openPoolModal(poolId);
+          renderMyCoopInvolvement();
         });
         return;
       }
@@ -718,7 +863,7 @@
         declineBtn.disabled = true;
         sb.from("pooling_participants").delete().eq("pooling_thread_id", poolId).eq("profile_id", declineBtn.dataset.id).then(function (res) {
           if (res.error) { showManageError(res.error.message); declineBtn.disabled = false; return; }
-          loadDetail(poolId);
+          openPoolModal(poolId);
         });
         return;
       }
@@ -728,7 +873,8 @@
         removeBtn.disabled = true;
         sb.from("pooling_participants").delete().eq("pooling_thread_id", poolId).eq("profile_id", removeBtn.dataset.id).then(function (res) {
           if (res.error) { showManageError(res.error.message); removeBtn.disabled = false; return; }
-          loadDetail(poolId);
+          openPoolModal(poolId);
+          renderMyCoopInvolvement();
         });
         return;
       }
@@ -738,7 +884,8 @@
         addBtn.disabled = true;
         sb.from("pooling_participants").insert({ pooling_thread_id: poolId, profile_id: addBtn.dataset.id }).then(function (res) {
           if (res.error) { showManageError(res.error.message); addBtn.disabled = false; return; }
-          loadDetail(poolId);
+          openPoolModal(poolId);
+          renderMyCoopInvolvement();
         });
       }
     });
@@ -771,6 +918,19 @@
     });
   }
 
+  function closePoolModal() {
+    document.getElementById("pool-detail-backdrop").classList.remove("is-open");
+    if (window.location.search) history.replaceState(null, "", "pooling.html");
+  }
+
+  function scrollToPoolCard(poolId) {
+    var card = document.querySelector('#pooling-list .post-card[data-id="' + poolId + '"]');
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("is-jump-target");
+    setTimeout(function () { card.classList.remove("is-jump-target"); }, 2200);
+  }
+
   document.addEventListener("DOMContentLoaded", async function () {
     if (!window.AttireAuth) return;
     var session = await window.AttireAuth.getSession();
@@ -795,36 +955,58 @@
       return;
     }
 
-    var poolId = new URLSearchParams(window.location.search).get("id");
-    if (poolId) {
-      loadDetail(poolId);
-      return;
-    }
-
     setupCreateForm();
     pools = await fetchPools();
     await fetchTrending();
     renderPoolList();
     renderRecent();
-    renderActiveCoopThreads();
+    renderMyCoopInvolvement();
+
+    var poolId = new URLSearchParams(window.location.search).get("id");
+    if (poolId) {
+      scrollToPoolCard(poolId);
+      openPoolModal(poolId);
+    }
 
     document.getElementById("pooling-sort-select").addEventListener("change", function (e) {
       filterState.sort = e.target.value;
       renderPoolList();
     });
 
-    document.getElementById("active-coop-threads-list").addEventListener("click", function (e) {
-      var item = e.target.closest('[data-action="open-thread-popup"]');
+    document.getElementById("pooling-list").addEventListener("click", function (e) {
+      var viewBtn = e.target.closest('[data-action="open-pool-modal"]');
+      if (viewBtn) { openPoolModal(viewBtn.dataset.id); return; }
+    });
+
+    document.getElementById("pooling-recent-list").addEventListener("click", function (e) {
+      var item = e.target.closest('[data-action="open-pool-modal"]');
       if (!item) return;
-      openThreadPopup(item.dataset.id, item.dataset.title, item.dataset.cat, item.dataset.avatar);
+      e.preventDefault();
+      openPoolModal(item.dataset.id);
+    });
+
+    document.getElementById("pending-coop-list").addEventListener("click", function (e) {
+      var item = e.target.closest('[data-action="open-pool-modal"]');
+      if (!item) return;
+      openPoolModal(item.dataset.id);
+    });
+    document.getElementById("active-coop-threads-list").addEventListener("click", function (e) {
+      var item = e.target.closest('[data-action="open-pool-modal"]');
+      if (!item) return;
+      openPoolModal(item.dataset.id);
+    });
+
+    document.getElementById("pool-detail-close").addEventListener("click", closePoolModal);
+    document.getElementById("pool-detail-backdrop").addEventListener("click", function (e) {
+      if (e.target.id === "pool-detail-backdrop") closePoolModal();
     });
 
     document.getElementById("thread-popup-close").addEventListener("click", function () {
       closeThreadPopup();
-      renderActiveCoopThreads();
+      renderMyCoopInvolvement();
     });
     document.getElementById("thread-popup-backdrop").addEventListener("click", function (e) {
-      if (e.target.id === "thread-popup-backdrop") { closeThreadPopup(); renderActiveCoopThreads(); }
+      if (e.target.id === "thread-popup-backdrop") { closeThreadPopup(); renderMyCoopInvolvement(); }
     });
     document.getElementById("thread-popup-members-btn").addEventListener("click", function () {
       var list = document.getElementById("thread-popup-members-list");
