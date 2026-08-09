@@ -8,6 +8,7 @@
   var profile = null;
   var activeThreadId = null;
   var dmThreads = [];
+  var threadSearchQuery = "";
 
   function initials(name) {
     var parts = name.trim().split(/\s+/);
@@ -121,20 +122,36 @@
   function renderThreadList() {
     var listEl = document.getElementById("chat-thread-list");
     if (!listEl) return;
-    listEl.innerHTML = dmThreads.length
-      ? dmThreads.map(function (t) {
+    var query = threadSearchQuery.trim().toLowerCase();
+    var visible = query
+      ? dmThreads.filter(function (t) {
           var other = t.other || {};
-          var name = other.org_name || other.contact_name || "Member";
-          return (
-            '<button type="button" class="app-list-item' + (t.id === activeThreadId ? " is-active" : "") + '" data-id="' + t.id + '">' +
-            avatarHtml(name, other.category, null, other.avatar_url) +
-            '<span class="app-list-item-body"><span class="app-list-item-name">' + escapeHtml(name) + "</span>" +
-            '<span class="app-list-item-preview">' + escapeHtml(t.preview || "") + "</span></span>" +
-            (t.unread > 0 ? '<span class="app-list-item-unread" aria-hidden="true"></span>' : "") +
-            "</button>"
-          );
-        }).join("")
-      : '<p class="settings-note" style="padding:0 var(--space-3);">No conversations yet — start one with the + button above.</p>';
+          var name = (other.org_name || other.contact_name || "").toLowerCase();
+          return name.indexOf(query) !== -1;
+        })
+      : dmThreads;
+
+    if (!dmThreads.length) {
+      listEl.innerHTML = '<p class="settings-note" style="padding:0 var(--space-3);">No conversations yet — start one with the + button above.</p>';
+      return;
+    }
+    if (!visible.length) {
+      listEl.innerHTML = '<p class="settings-note" style="padding:0 var(--space-3);">No conversations match &ldquo;' + escapeHtml(threadSearchQuery.trim()) + '&rdquo;.</p>';
+      return;
+    }
+
+    listEl.innerHTML = visible.map(function (t) {
+      var other = t.other || {};
+      var name = other.org_name || other.contact_name || "Member";
+      return (
+        '<button type="button" class="app-list-item' + (t.id === activeThreadId ? " is-active" : "") + '" data-id="' + t.id + '">' +
+        avatarHtml(name, other.category, null, other.avatar_url) +
+        '<span class="app-list-item-body"><span class="app-list-item-name">' + escapeHtml(name) + "</span>" +
+        '<span class="app-list-item-preview">' + escapeHtml(t.preview || "") + "</span></span>" +
+        (t.unread > 0 ? '<span class="app-list-item-unread" aria-hidden="true"></span>' : "") +
+        "</button>"
+      );
+    }).join("");
   }
 
   async function renderChatView() {
@@ -330,6 +347,11 @@
 
     renderThreadList();
     await renderChatView();
+
+    document.getElementById("thread-search-input").addEventListener("input", function (e) {
+      threadSearchQuery = e.target.value;
+      renderThreadList();
+    });
 
     document.getElementById("chat-back").addEventListener("click", function () {
       activeThreadId = null;
