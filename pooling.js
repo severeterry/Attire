@@ -338,7 +338,9 @@
     var visible = visiblePools();
     listEl.innerHTML = visible.length
       ? visible.map(poolCardHtml).join("")
-      : '<p class="settings-note">No Co-Ops match those filters.</p>';
+      : pools.length
+        ? '<p class="settings-note">No Co-Ops match those filters.</p>'
+        : '<p class="settings-note">No Co-Ops open right now — be the first to start one and see who joins.</p>';
 
     var countEl = document.getElementById("pooling-result-count");
     if (countEl) countEl.textContent = visible.length + (visible.length === 1 ? " Co-Op" : " Co-Ops");
