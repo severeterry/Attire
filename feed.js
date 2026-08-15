@@ -105,14 +105,22 @@
     var author = c.profiles || {};
     var name = author.org_name || author.contact_name || "Member";
     var liked = likedCommentIds.has(c.id);
+    var isOwn = c.author_id === profile.id;
     return (
       '<div class="feed-comment-row" style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">' +
       '<p class="settings-note" style="margin:0;"><strong>' + escapeHtml(name) + ":</strong> " + escapeHtml(c.body) + "</p>" +
+      '<span style="display:flex; align-items:center; gap:0.2rem; flex-shrink:0;">' +
       '<button type="button" class="post-action-icon post-action-icon--sm" data-action="like-comment" data-id="' + c.id + '" aria-pressed="' + liked + '" aria-label="Like comment">' +
       (liked
         ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>'
         : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>') +
       "<span>" + commentLikeCountOf(c) + "</span></button>" +
+      (isOwn
+        ? '<button type="button" class="post-action-icon post-action-icon--sm" data-action="delete-comment" data-id="' + c.id + '" aria-label="Delete comment">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>' +
+          "</button>"
+        : "") +
+      "</span>" +
       "</div>"
     );
   }
@@ -120,7 +128,7 @@
   async function loadComments(postId) {
     var res = await sb
       .from("post_comments")
-      .select("id, body, created_at, profiles!post_comments_author_id_fkey(org_name, contact_name), comment_likes(count)")
+      .select("id, body, created_at, author_id, profiles!post_comments_author_id_fkey(org_name, contact_name), comment_likes(count)")
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
     var listEl = document.getElementById("comments-list-" + postId);
@@ -266,6 +274,11 @@
       '<button type="button" class="post-action-icon" data-action="toggle-comments" data-id="' + post.id + '" aria-label="Toggle comments">' +
       '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
       "<span>" + commentCount + "</span></button>" +
+      (post.author_id === profile.id
+        ? '<button type="button" class="post-action-icon" data-action="delete-post" data-id="' + post.id + '" aria-label="Delete post">' +
+          '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>' +
+          "</button>"
+        : "") +
       "</div>" +
       '<div class="feed-comments" data-comments-for="' + post.id + '"' + (isOpen ? "" : " hidden") + ' style="margin-top:0.6rem;">' +
       '<div class="feed-comments-list" id="comments-list-' + post.id + '" style="display:flex; flex-direction:column; gap:0.3rem; margin-bottom:0.5rem;"></div>' +
@@ -418,6 +431,38 @@
           if (commentAlreadyLiked) likedCommentIds.delete(commentId);
           else likedCommentIds.add(commentId);
           loadComments(commentPostId);
+        });
+        return;
+      }
+
+      var deleteCommentBtn = e.target.closest('[data-action="delete-comment"]');
+      if (deleteCommentBtn) {
+        if (!window.confirm("Delete this comment?")) return;
+        var delCommentId = deleteCommentBtn.dataset.id;
+        var delCommentPostId = deleteCommentBtn.closest(".feed-comments").dataset.commentsFor;
+        deleteCommentBtn.disabled = true;
+        // .eq("author_id", profile.id) mirrors the post_comments_owner_delete
+        // RLS policy that already enforces this server-side — belt and
+        // suspenders, not the only thing standing between you and someone
+        // else's comment.
+        sb.from("post_comments").delete().eq("id", delCommentId).eq("author_id", profile.id).then(function (res) {
+          deleteCommentBtn.disabled = false;
+          if (res.error) { window.alert(res.error.message); return; }
+          loadComments(delCommentPostId);
+          loadFeedItems().then(renderFeed);
+        });
+        return;
+      }
+
+      var deletePostBtn = e.target.closest('[data-action="delete-post"]');
+      if (deletePostBtn) {
+        if (!window.confirm("Delete this post? This can't be undone.")) return;
+        var delPostId = deletePostBtn.dataset.id;
+        deletePostBtn.disabled = true;
+        sb.from("posts").delete().eq("id", delPostId).eq("author_id", profile.id).then(function (res) {
+          deletePostBtn.disabled = false;
+          if (res.error) { window.alert(res.error.message); return; }
+          loadFeedItems().then(renderFeed);
         });
       }
     });
