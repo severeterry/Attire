@@ -50,6 +50,12 @@
       success.classList.add("is-visible");
       success.setAttribute("tabindex", "-1");
       success.focus();
+    }).catch(function () {
+      submitBtn.disabled = false;
+      if (formError) {
+        formError.textContent = "Something went wrong submitting your application — please try again.";
+        formError.hidden = false;
+      }
     });
   });
 
@@ -216,7 +222,15 @@
           checkEmailPanel.setAttribute("tabindex", "-1");
           checkEmailPanel.focus();
         }
+      }).catch(function () {
+        resetButton();
+        errorEl.textContent = "Something went wrong creating your account — please try again.";
+        errorEl.hidden = false;
       });
+    }).catch(function () {
+      resetButton();
+      errorEl.textContent = "Something went wrong creating your account — please try again.";
+      errorEl.hidden = false;
     });
   });
 
@@ -272,6 +286,10 @@
             planSetup.focus();
           }
         });
+      }).catch(function () {
+        submitBtn.disabled = false;
+        statusResult.textContent = "Something went wrong checking your status — please try again.";
+        statusResult.hidden = false;
       });
     });
   }
