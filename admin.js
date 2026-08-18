@@ -218,6 +218,56 @@
     renderFlaggedList();
   }
 
+  // ---- Pilot cohort usage (founding-cohort engagement monitoring) ----
+
+  var pilotUsage = [];
+  var pilotFoundingOnly = true;
+
+  async function fetchPilotUsage() {
+    var res = await sb.rpc("admin_pilot_cohort_usage");
+    if (res.error) { console.error(res.error); return []; }
+    return res.data;
+  }
+
+  function pilotRowHtml(r) {
+    var joined = new Date(r.joined_at).toLocaleDateString();
+    var lastActive = r.last_activity_at ? relativeTime(new Date(r.last_activity_at).getTime()) + " ago" : "—";
+    return (
+      "<tr>" +
+      "<td><strong>" + escapeHtml(r.org_name || r.contact_name) + "</strong>" +
+      (r.is_founding_cohort ? ' <span class="cat-badge" data-cat="' + escapeHtml(r.category || "") + '" style="margin-left:0.35rem;">Founding</span>' : "") +
+      "</td>" +
+      "<td>" + escapeHtml(r.tier || "free") + "</td>" +
+      "<td>" + joined + "</td>" +
+      "<td>" + lastActive + "</td>" +
+      "<td>" + r.exchange_posts_count + "</td>" +
+      "<td>" + r.coop_organized_count + " organized / " + r.coop_joined_count + " joined</td>" +
+      "<td>" + r.intro_sent_count + " sent / " + r.intro_received_count + " recv / " + r.intro_accepted_count + " accepted</td>" +
+      "<td>" + r.feed_posts_count + " posts / " + r.feed_comments_count + " comments</td>" +
+      "<td>" + r.messages_sent_count + "</td>" +
+      "</tr>"
+    );
+  }
+
+  function renderPilotTable() {
+    var rows = pilotFoundingOnly ? pilotUsage.filter(function (r) { return r.is_founding_cohort; }) : pilotUsage;
+    var bodyEl = document.getElementById("pilot-table-body");
+    var tableEl = document.getElementById("pilot-table");
+    var emptyEl = document.getElementById("pilot-empty");
+    bodyEl.innerHTML = rows.map(pilotRowHtml).join("");
+    tableEl.hidden = rows.length === 0;
+    emptyEl.hidden = rows.length !== 0;
+
+    var countEl = document.getElementById("pilot-count");
+    countEl.textContent = rows.length + (rows.length === 1 ? " organization" : " organizations");
+  }
+
+  async function reloadPilotUsage() {
+    pilotUsage = await fetchPilotUsage();
+    pilotUsage.sort(function (a, b) { return new Date(b.last_activity_at) - new Date(a.last_activity_at); });
+    renderPilotTable();
+  }
+
   document.addEventListener("DOMContentLoaded", async function () {
     if (!window.AttireAuth) return;
     var session = await window.AttireAuth.getSession();
@@ -274,9 +324,16 @@
         document.getElementById("tab-applications").hidden = tabBtn.dataset.tabBtn !== "applications";
         document.getElementById("tab-candidates").hidden = tabBtn.dataset.tabBtn !== "candidates";
         document.getElementById("tab-flagged").hidden = tabBtn.dataset.tabBtn !== "flagged";
+        document.getElementById("tab-pilot").hidden = tabBtn.dataset.tabBtn !== "pilot";
         if (tabBtn.dataset.tabBtn === "candidates" && !candidates.length) reloadCandidates();
         if (tabBtn.dataset.tabBtn === "flagged") reloadFlagged();
+        if (tabBtn.dataset.tabBtn === "pilot" && !pilotUsage.length) reloadPilotUsage();
       });
+    });
+
+    document.getElementById("pilot-founding-only").addEventListener("change", function (e) {
+      pilotFoundingOnly = e.target.checked;
+      renderPilotTable();
     });
 
     document.getElementById("flagged-list").addEventListener("click", function (e) {
