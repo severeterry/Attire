@@ -1642,7 +1642,11 @@ body:has(.app-shell) { overflow: hidden; }
 .settings-danger .btn-outline:hover { background: var(--color-danger); color: #fff; }
 
 /* Login modal (unrelated to app shell but shares .form-field) */
-.login-modal-panel { max-width: 26rem; }
+.login-modal-panel { max-width: 26rem; padding: var(--space-5) var(--space-4) var(--space-4); }
+.login-modal-panel .modal-head { margin-bottom: var(--space-4); }
+.login-modal-panel .form-field { margin-bottom: var(--space-3); }
+.login-modal-panel button[type="submit"] { margin-top: var(--space-2); }
+.login-modal-panel .login-demo-accounts { margin-top: var(--space-3); padding-top: var(--space-3); }
 .login-error { color: var(--color-danger); font-size: 0.85rem; margin: -0.3rem 0 0.8rem; }
 .login-hint { font-size: 0.78rem; color: var(--color-ink-soft); text-align: center; margin: var(--space-2) 0 0; }
 .login-hint a { color: var(--color-brand-deep); font-weight: 600; }
