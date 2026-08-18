@@ -1124,6 +1124,8 @@ body.theme-green .btn-primary { background: #fff; color: var(--color-brand-deep)
 body.theme-green .btn-primary:hover { background: var(--color-brand-tint); }
 body.theme-green .cat-pill[data-cat="all"][aria-pressed="true"] { background: #fff; color: var(--color-brand-deep); border-color: #fff; }
 body.theme-green .empty-state h3 { color: #fff; }
+body.theme-green .legal-content h1,
+body.theme-green .legal-content h2 { color: #fff; }
 body.theme-green .empty-state p { color: var(--color-dark-text-soft); }
 
 /* Light panels within the green theme (tint sections, the white form card) keep normal dark-on-light text */
