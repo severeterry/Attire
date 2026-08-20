@@ -276,6 +276,7 @@
       if (otherProfile) {
         otherName = otherProfile.orgName || otherProfile.name || "Member";
         await renderOtherRealProfile();
+        sb.from("profile_views").insert({ profile_id: idParam, viewer_id: profile.id });
       } else {
         document.getElementById("topbar-title").textContent = "Member not found";
       }

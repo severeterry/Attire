@@ -506,17 +506,7 @@
       feedTypePills.querySelectorAll(".cat-pill").forEach(function (p) {
         p.setAttribute("aria-pressed", String(p === pill));
       });
-      var badge = document.getElementById("more-filters-badge");
-      badge.hidden = filterState.type === "all";
-      badge.textContent = filterState.type === "all" ? "" : "1";
       renderFeed();
-    });
-
-    var moreFiltersToggle = document.getElementById("more-filters-toggle");
-    moreFiltersToggle.addEventListener("click", function () {
-      var isOpen = feedTypePills.hidden;
-      feedTypePills.hidden = !isOpen;
-      moreFiltersToggle.setAttribute("aria-expanded", String(isOpen));
     });
 
     document.getElementById("feed-sort-select").addEventListener("change", function (e) {

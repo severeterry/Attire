@@ -59,6 +59,9 @@
       }
       return { label: "Need this again? An Exchange post was fulfilled about a month ago: “" + p.body_snippet + "…”", href: "member-portal.html?view=deal" };
     },
+    profile_incomplete_nudge: function () { return { label: "Add a photo and bio to your profile — it helps other members recognize you", href: "profile.html" }; },
+    profile_view_milestone: function (p) { return { label: "Your profile has been viewed " + p.views + " times", href: "profile.html" }; },
+    founding_cohort_anniversary: function (p) { return { label: "Happy " + p.years + "-year anniversary as a founding member of Attire!", href: "profile.html" }; },
   };
 
   // Aggregates every real, active thread the caller is in — plain DMs,

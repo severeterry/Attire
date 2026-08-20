@@ -135,25 +135,22 @@
           </div>
         </form>
 
-        <div class="app-main-toolbar">
-          <span class="settings-note" id="feed-result-count" style="margin:0;"></span>
-          <button type="button" class="btn btn-outline btn-sm" id="more-filters-toggle" aria-expanded="false" aria-controls="feed-type-pills">
-            Filter by type <span id="more-filters-badge" hidden></span>
-          </button>
-          <select class="filter-select" id="feed-sort-select" aria-label="Sort posts">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="most-relevant">Most relevant</option>
-          </select>
-        </div>
-
-        <div class="pill-row" id="feed-type-pills" role="group" aria-label="Filter by type" hidden style="margin-bottom:0.75rem;">
+        <div class="pill-row" id="feed-type-pills" role="group" aria-label="Filter by type" style="margin-bottom:0.75rem;">
           <button type="button" class="cat-pill cat-pill--sm" data-type="all" aria-pressed="true">All</button>
           <button type="button" class="cat-pill cat-pill--sm" data-type="update">Updates</button>
           <button type="button" class="cat-pill cat-pill--sm" data-type="event">Events</button>
           <button type="button" class="cat-pill cat-pill--sm" data-type="collab">Collabs</button>
           <button type="button" class="cat-pill cat-pill--sm" data-type="exchange">Exchange</button>
           <button type="button" class="cat-pill cat-pill--sm" data-type="coop">Co-Op</button>
+        </div>
+
+        <div class="app-main-toolbar">
+          <span class="settings-note" id="feed-result-count" style="margin:0;"></span>
+          <select class="filter-select" id="feed-sort-select" aria-label="Sort posts">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="most-relevant">Most relevant</option>
+          </select>
         </div>
 
         <div id="feed-list" style="display:flex; flex-direction:column; gap:var(--space-3);"></div>
@@ -181,7 +178,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=8"></script>
-<script src="shell.js?v=12"></script>
-<script src="feed.js?v=17"></script>
+<script src="shell.js?v=13"></script>
+<script src="feed.js?v=18"></script>
 </body>
 </html>
