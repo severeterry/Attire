@@ -13,6 +13,7 @@
   var boroughSelect = document.getElementById("borough-select");
   var verifiedOnly = document.getElementById("verified-only");
   var pillRow = document.getElementById("category-pills");
+  var bestForPillRow = document.getElementById("best-for-pills");
   var clearBtn = document.getElementById("clear-filters");
   var emptyClearBtn = document.getElementById("empty-clear");
 
@@ -20,7 +21,7 @@
   var modalPanel = document.getElementById("modal-panel");
   var modalClose = document.getElementById("modal-close");
 
-  var state = { search: "", category: "all", borough: "all", verified: false };
+  var state = { search: "", category: "all", borough: "all", verified: false, bestFor: "all" };
 
   function vBadge(isVerified) {
     if (isVerified) {
@@ -94,7 +95,8 @@
   }
 
   function matchesFilters(item) {
-    if (state.category !== "all" && item.category !== state.category) return false;
+    if (state.category !== "all" && item.category !== state.category && item.secondaryCategories.indexOf(state.category) === -1) return false;
+    if (state.bestFor !== "all" && item.bestFor.indexOf(state.bestFor) === -1) return false;
     if (state.borough !== "all" && item.borough !== state.borough) return false;
     if (state.verified && !item.verified) return false;
     if (state.search) {
@@ -168,6 +170,20 @@
     setCategoryPill(pill.getAttribute("data-cat"));
   });
 
+  function setBestForPill(value) {
+    state.bestFor = value;
+    bestForPillRow.querySelectorAll(".cat-pill").forEach(function (pill) {
+      pill.setAttribute("aria-pressed", String(pill.getAttribute("data-best-for") === value));
+    });
+    render();
+  }
+
+  bestForPillRow.addEventListener("click", function (e) {
+    var pill = e.target.closest(".cat-pill");
+    if (!pill) return;
+    setBestForPill(pill.getAttribute("data-best-for"));
+  });
+
   searchInput.addEventListener("input", function () {
     state.search = searchInput.value.trim();
     render();
@@ -184,10 +200,11 @@
   });
 
   function clearFilters() {
-    state = { search: "", category: "all", borough: "all", verified: false };
+    state = { search: "", category: "all", borough: "all", verified: false, bestFor: "all" };
     searchInput.value = "";
     boroughSelect.value = "all";
     verifiedOnly.checked = false;
+    setBestForPill("all");
     setCategoryPill("all");
   }
 
@@ -199,7 +216,8 @@
 
   function openModal(item) {
     document.getElementById("modal-banner").setAttribute("data-cat", item.category);
-    document.getElementById("modal-badges").innerHTML = catBadge(item.category) + vBadge(item.verified);
+    var secondaryBadges = item.secondaryCategories.map(catBadge).join("");
+    document.getElementById("modal-badges").innerHTML = catBadge(item.category) + secondaryBadges + vBadge(item.verified);
     var modalLogoEl = document.getElementById("modal-logo");
     var modalLogoHtml = logoImgHtml(item.websiteUrl, "modal-logo-img");
     if (modalLogoHtml) {
@@ -260,6 +278,7 @@
         borough: row.borough, verified: row.verified, tag: row.tag, yearsNote: row.years_note,
         description: row.description, goodToKnow: row.good_to_know,
         websiteUrl: row.website_url, instagramUrl: row.instagram_url, tiktokUrl: row.tiktok_url,
+        secondaryCategories: row.secondary_categories || [], bestFor: row.best_for || [],
       };
     });
   }

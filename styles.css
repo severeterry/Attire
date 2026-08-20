@@ -769,7 +769,11 @@ h1, h2, h3 { font-family: var(--font-serif); margin: 0; color: var(--color-brand
 .verified-toggle input { accent-color: var(--color-brand-dark); width: 16px; height: 16px; }
 .verified-toggle:has(input:checked) { border-color: var(--color-brand); color: var(--color-brand-deep); background: var(--color-brand-tint); }
 
-.pill-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.pill-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+.pill-row--secondary { margin-top: 0.5rem; }
+.pill-row-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-ink-soft); margin-right: 0.2rem; }
+.cat-pill--sm { padding: 0.35rem 0.7rem 0.35rem 0.55rem; font-size: 0.78rem; }
+.cat-pill--sm::before { width: 6px; height: 6px; }
 .cat-pill {
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.5rem 0.9rem 0.5rem 0.7rem; border-radius: 999px;

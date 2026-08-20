@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=64">
+<link rel="stylesheet" href="styles.css?v=65">
 </head>
 <body class="theme-green">
 
@@ -84,6 +84,16 @@
           <button type="button" class="cat-pill" data-cat="strategy" aria-pressed="false">Strategy &amp; Expertise</button>
           <button type="button" class="cat-pill" data-cat="advocacy" aria-pressed="false">Advocacy &amp; Community</button>
           <button type="button" class="cat-pill" data-cat="retail" aria-pressed="false">Retail &amp; Creators</button>
+        </div>
+        <div class="pill-row pill-row--secondary" id="best-for-pills" role="group" aria-label="Filter by who it's best for">
+          <span class="pill-row-label">Best for</span>
+          <button type="button" class="cat-pill cat-pill--sm" data-best-for="all" aria-pressed="true">Everyone</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-best-for="creators">Creators</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-best-for="brands">Brands</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-best-for="consultants">Consultants</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-best-for="manufacturers">Manufacturers</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-best-for="shoppers">Shoppers</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-best-for="community">Community</button>
         </div>
       </div>
 
@@ -221,6 +231,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=8"></script>
-<script src="directory.js?v=7"></script>
+<script src="directory.js?v=8"></script>
 </body>
 </html>
