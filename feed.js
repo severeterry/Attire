@@ -18,6 +18,49 @@
   var filterState = { sort: "newest", type: "all" };
   var exchangeResponseCounts = {};
 
+  // Uploads to the shared post-attachments bucket (public read), matching
+  // the same pattern used for Exchange/Co-Op/message attachments.
+  async function uploadPostImage(file, ownerId) {
+    if (!file) return null;
+    var ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    var path = ownerId + "/" + Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
+    var res = await sb.storage.from("post-attachments").upload(path, file);
+    if (res.error) return null;
+    return sb.storage.from("post-attachments").getPublicUrl(path).data.publicUrl;
+  }
+
+  function setupImageAttach(btnId, inputId, nameId, previewId) {
+    var btn = document.getElementById(btnId);
+    var input = document.getElementById(inputId);
+    var nameEl = document.getElementById(nameId);
+    var previewEl = document.getElementById(previewId);
+    if (!btn || !input) return;
+
+    btn.addEventListener("click", function () { input.click(); });
+    input.addEventListener("change", function () {
+      var file = input.files[0];
+      if (!file) {
+        if (nameEl) nameEl.textContent = "";
+        if (previewEl) previewEl.hidden = true;
+        return;
+      }
+      if (nameEl) nameEl.textContent = file.name;
+      if (previewEl) {
+        previewEl.src = URL.createObjectURL(file);
+        previewEl.hidden = false;
+      }
+    });
+  }
+
+  function clearImageAttach(inputId, nameId, previewId) {
+    var input = document.getElementById(inputId);
+    var nameEl = document.getElementById(nameId);
+    var previewEl = document.getElementById(previewId);
+    if (input) input.value = "";
+    if (nameEl) nameEl.textContent = "";
+    if (previewEl) previewEl.hidden = true;
+  }
+
   // Public response counts — the count is visible to everyone, the thread
   // content behind it stays exactly as private as before.
   async function fetchResponseCounts(postIds) {
@@ -64,7 +107,7 @@
   async function fetchPosts() {
     var res = await sb
       .from("posts")
-      .select("id, body, created_at, author_id, post_kind, event_at, collab_skills_needed, collab_timeline, profiles!posts_author_id_fkey(org_name, contact_name, category, avatar_url, tier), post_likes(count), post_comments(count)")
+      .select("id, body, created_at, author_id, post_kind, event_at, event_link, collab_skills_needed, collab_timeline, image_url, profiles!posts_author_id_fkey(org_name, contact_name, category, avatar_url, tier), post_likes(count), post_comments(count)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     return res.data;
@@ -264,13 +307,16 @@
     var isOpen = openComments.has(post.id);
     var kind = post.post_kind || "update";
     var kindBadge = kind === "event"
-      ? '<span class="post-type-flag post-type-flag--exchange">Event</span>'
+      ? '<span class="post-type-flag post-type-flag--event">Event</span>'
       : kind === "collab"
-        ? '<span class="post-type-flag post-type-flag--coop">Looking to collab</span>'
+        ? '<span class="post-type-flag post-type-flag--collab">Looking to collab</span>'
         : "";
+    var cardKindClass = kind === "event" ? " is-event" : kind === "collab" ? " is-collab" : "";
     var structuredHtml = "";
-    if (kind === "event" && post.event_at) {
-      structuredHtml = '<p class="settings-note" style="margin:0.3rem 0 0;"><strong>When:</strong> ' + escapeHtml(new Date(post.event_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })) + "</p>";
+    if (kind === "event") {
+      structuredHtml =
+        (post.event_at ? '<p class="settings-note" style="margin:0.3rem 0 0;"><strong>When:</strong> ' + escapeHtml(new Date(post.event_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })) + "</p>" : "") +
+        (post.event_link ? '<a href="' + escapeHtml(post.event_link) + '" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-top:0.4rem;">Event link &rarr;</a>' : "");
     } else if (kind === "collab" && (post.collab_skills_needed || post.collab_timeline)) {
       structuredHtml =
         (post.collab_skills_needed ? '<p class="settings-note" style="margin:0.3rem 0 0;"><strong>Needed:</strong> ' + escapeHtml(post.collab_skills_needed) + "</p>" : "") +
@@ -279,7 +325,7 @@
     var likeLabel = kind === "event" ? "Interested" : "Like";
 
     return (
-      '<article class="post-card" data-id="' + post.id + '">' +
+      '<article class="post-card' + cardKindClass + '" data-id="' + post.id + '">' +
       (kindBadge ? '<div class="post-type-flag-slot">' + kindBadge + "</div>" : "") +
       '<div class="post-head">' +
       '<a href="' + authorLink + '">' + avatarHtml(name, author.category, author.avatar_url) + "</a>" +
@@ -287,6 +333,7 @@
       '<a class="post-author-name" href="' + authorLink + '">' + escapeHtml(name) + "</a>" +
       '<div class="post-meta-row"><span>' + relativeTime(new Date(post.created_at).getTime()) + " ago</span></div>" +
       "</div></div>" +
+      (post.image_url ? '<img class="post-attachment-img" src="' + escapeHtml(post.image_url) + '" alt="" loading="lazy">' : "") +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
       structuredHtml +
       '<div class="post-actions">' +
@@ -390,9 +437,12 @@
     var composerEventFields = document.getElementById("composer-event-fields");
     var composerCollabFields = document.getElementById("composer-collab-fields");
     var composerEventAt = document.getElementById("composer-event-at");
+    var composerEventLink = document.getElementById("composer-event-link");
     var composerCollabSkills = document.getElementById("composer-collab-skills");
     var composerCollabTimeline = document.getElementById("composer-collab-timeline");
     var composerKind = "update";
+
+    setupImageAttach("composer-attach-btn", "composer-image-input", "composer-attach-name", "composer-attach-preview");
 
     composerKindPills.addEventListener("click", function (e) {
       var pill = e.target.closest(".cat-pill");
@@ -405,7 +455,7 @@
       composerCollabFields.hidden = composerKind !== "collab";
     });
 
-    composerForm.addEventListener("submit", function (e) {
+    composerForm.addEventListener("submit", async function (e) {
       e.preventDefault();
       var body = composerTextarea.value.trim();
       if (!body) return;
@@ -414,12 +464,15 @@
       submitBtn.disabled = true;
 
       var payload = { author_id: profile.id, body: body, post_kind: composerKind };
-      if (composerKind === "event" && composerEventAt.value) {
-        payload.event_at = new Date(composerEventAt.value).toISOString();
+      if (composerKind === "event") {
+        if (composerEventAt.value) payload.event_at = new Date(composerEventAt.value).toISOString();
+        if (composerEventLink.value.trim()) payload.event_link = composerEventLink.value.trim();
       }
       if (composerKind === "collab") {
         if (composerCollabSkills.value.trim()) payload.collab_skills_needed = composerCollabSkills.value.trim();
         if (composerCollabTimeline.value.trim()) payload.collab_timeline = composerCollabTimeline.value.trim();
+        var imageFile = document.getElementById("composer-image-input").files[0];
+        if (imageFile) payload.image_url = await uploadPostImage(imageFile, profile.id);
       }
 
       sb.from("posts").insert(payload).then(function (res) {
@@ -431,8 +484,10 @@
         }
         composerTextarea.value = "";
         composerEventAt.value = "";
+        composerEventLink.value = "";
         composerCollabSkills.value = "";
         composerCollabTimeline.value = "";
+        clearImageAttach("composer-image-input", "composer-attach-name", "composer-attach-preview");
         composerKind = "update";
         composerKindPills.querySelectorAll(".cat-pill").forEach(function (p) {
           p.setAttribute("aria-pressed", String(p.getAttribute("data-kind") === "update"));
@@ -451,7 +506,17 @@
       feedTypePills.querySelectorAll(".cat-pill").forEach(function (p) {
         p.setAttribute("aria-pressed", String(p === pill));
       });
+      var badge = document.getElementById("more-filters-badge");
+      badge.hidden = filterState.type === "all";
+      badge.textContent = filterState.type === "all" ? "" : "1";
       renderFeed();
+    });
+
+    var moreFiltersToggle = document.getElementById("more-filters-toggle");
+    moreFiltersToggle.addEventListener("click", function () {
+      var isOpen = feedTypePills.hidden;
+      feedTypePills.hidden = !isOpen;
+      moreFiltersToggle.setAttribute("aria-expanded", String(isOpen));
     });
 
     document.getElementById("feed-sort-select").addEventListener("change", function (e) {

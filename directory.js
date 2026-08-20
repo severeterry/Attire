@@ -146,6 +146,13 @@
     });
   }
 
+  function updateMoreFiltersBadge() {
+    var count = (state.borough !== "all" ? 1 : 0) + (state.verified ? 1 : 0) + (state.bestFor !== "all" ? 1 : 0);
+    var badge = document.getElementById("more-filters-badge");
+    badge.hidden = count === 0;
+    badge.textContent = count || "";
+  }
+
   function render() {
     var filtered = sortByLogoPresence(LISTINGS.filter(matchesFilters));
     grid.innerHTML = "";
@@ -154,6 +161,7 @@
     resultsCount.innerHTML = "Showing <strong>" + filtered.length + "</strong> of " + LISTINGS.length + " organizations";
     emptyState.hidden = filtered.length !== 0;
     grid.hidden = filtered.length === 0;
+    updateMoreFiltersBadge();
   }
 
   function setCategoryPill(catId) {
@@ -197,6 +205,14 @@
   verifiedOnly.addEventListener("change", function () {
     state.verified = verifiedOnly.checked;
     render();
+  });
+
+  var moreFiltersToggle = document.getElementById("more-filters-toggle");
+  var moreFiltersPanel = document.getElementById("more-filters-panel");
+  moreFiltersToggle.addEventListener("click", function () {
+    var isOpen = moreFiltersPanel.hidden;
+    moreFiltersPanel.hidden = !isOpen;
+    moreFiltersToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
   function clearFilters() {
