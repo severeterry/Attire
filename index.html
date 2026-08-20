@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Attire — NYC's Circular Fashion Directory & Membership Network</title>
+<title>Attire — NYC's Sustainable Fashion Directory & Membership Network</title>
 <meta name="description" content="Attire connects NYC's circular fashion stakeholders — fabric mills, manufacturers, recyclers, consultants, and NGOs — through a public directory and a vetted membership network.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23699973%22/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,11 +51,11 @@
       <div class="reveal hero-network-copy">
         <p class="trust-badge">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
-          129 organizations, independently verified
+          <span id="trust-badge-count">129</span> organizations, independently verified
         </p>
         <h1 class="hero-network-title">
           The network behind<br>
-          NYC's <em>circular fashion</em> industry.
+          NYC's <em>sustainable fashion</em> industry.
         </h1>
         <p class="hero-network-sub">
           Attire is helping shape a new age of fashion. A public directory for anyone to search
@@ -497,6 +497,30 @@
     </div>
   </section>
 
+  <!-- WHAT SUSTAINABLE MEANS TO US -->
+  <section class="section section-sm fade-section" id="what-sustainable-means">
+    <div class="wrap">
+      <div class="section-head reveal" style="max-width:38rem;">
+        <p class="section-kicker">Our Standard</p>
+        <h2 class="section-title" style="font-size:1.8rem;">What "sustainable" means at Attire</h2>
+        <p class="section-lede">
+          It's a word that gets used loosely across this industry, so we treat it as a real bar
+          every Directory listing has to clear — not a label anyone can claim.
+        </p>
+      </div>
+      <ul class="check-list reveal" style="max-width:38rem; margin-top:var(--space-3);">
+        <li>Lower-impact materials — recycled, organic, deadstock, or bio-based — are a meaningful part of what they make or sell, not a single capsule line.</li>
+        <li>A real, checkable practice: certifications, published supply-chain detail, take-back or resale programs, or documented sourcing — something beyond a claim on their own website.</li>
+        <li>Circularity built into the model — repair, resale, recycling, deadstock, or pooled and reduced-waste production — not an afterthought.</li>
+      </ul>
+      <p class="reveal" style="max-width:38rem; margin-top:var(--space-3); color:var(--color-ink-soft);">
+        We'd rather list fewer verified stakeholders than a long list of self-described ones.
+        When a listing doesn't clearly clear this bar yet, we note it rather than drop it
+        silently — that's what the verification status on every Directory listing is for.
+      </p>
+    </div>
+  </section>
+
   <!-- LEAD CAPTURE -->
   <section class="section section-tint section-sm fade-section" id="get-in-touch">
     <div class="wrap">
@@ -632,5 +656,6 @@
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=8"></script>
 <script src="leads.js?v=1"></script>
+<script src="homepage-stats.js?v=1"></script>
 </body>
 </html>
