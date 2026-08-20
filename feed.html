@@ -102,15 +102,39 @@
     <div class="app-content app-content--rows">
       <main class="app-main">
         <form class="composer-card" id="feed-composer-form">
+          <div class="pill-row" id="composer-kind-pills" role="group" aria-label="Post type" style="margin-bottom:0.6rem;">
+            <button type="button" class="cat-pill cat-pill--sm" data-kind="update" aria-pressed="true">Update</button>
+            <button type="button" class="cat-pill cat-pill--sm" data-kind="event" aria-pressed="false">Event</button>
+            <button type="button" class="cat-pill cat-pill--sm" data-kind="collab" aria-pressed="false">Looking to collab</button>
+          </div>
           <div class="composer-top">
             <span class="portal-avatar" id="composer-avatar" aria-hidden="true"></span>
             <textarea class="composer-textarea" id="feed-composer-textarea" placeholder="Share an update with the network&hellip;" required></textarea>
+          </div>
+          <div id="composer-event-fields" hidden style="margin:0.5rem 0; display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="settings-note" for="composer-event-at" style="margin:0;">When</label>
+            <input type="datetime-local" id="composer-event-at" class="filter-select" style="width:auto;">
+          </div>
+          <div id="composer-collab-fields" hidden style="margin:0.5rem 0; display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="settings-note" for="composer-collab-skills" style="margin:0;">Skills or resources needed</label>
+            <input type="text" id="composer-collab-skills" class="filter-select" style="width:100%;" placeholder="e.g. pattern maker, photographer, warehouse space&hellip;">
+            <label class="settings-note" for="composer-collab-timeline" style="margin:0;">Timeline</label>
+            <input type="text" id="composer-collab-timeline" class="filter-select" style="width:100%;" placeholder="e.g. next 2 weeks, ongoing&hellip;">
           </div>
           <p class="login-error" id="feed-composer-error" hidden></p>
           <div class="composer-actions">
             <button type="submit" class="btn btn-primary btn-sm">Post</button>
           </div>
         </form>
+
+        <div class="pill-row" id="feed-type-pills" role="group" aria-label="Filter by type" style="margin-bottom:0.75rem;">
+          <button type="button" class="cat-pill cat-pill--sm" data-type="all" aria-pressed="true">All</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-type="update">Updates</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-type="event">Events</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-type="collab">Collabs</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-type="exchange">Exchange</button>
+          <button type="button" class="cat-pill cat-pill--sm" data-type="coop">Co-Op</button>
+        </div>
 
         <div class="app-main-toolbar">
           <span class="settings-note" id="feed-result-count" style="margin:0;"></span>
@@ -146,7 +170,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js?v=1"></script>
 <script src="auth.js?v=8"></script>
-<script src="shell.js?v=11"></script>
-<script src="feed.js?v=14"></script>
+<script src="shell.js?v=12"></script>
+<script src="feed.js?v=15"></script>
 </body>
 </html>

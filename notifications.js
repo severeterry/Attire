@@ -24,6 +24,12 @@
     pool_terms_updated: function (p) { return { label: "The organizer updated this Co-Op's terms", href: "pooling.html?id=" + p.pooling_thread_id }; },
     pool_closing_soon: function (p) { return { label: "A Co-Op you joined is closing soon", href: "pooling.html?id=" + p.pooling_thread_id }; },
     weekly_digest: function () { return { label: "Your weekly Exchange digest is ready", href: "member-portal.html?view=deal" }; },
+    renewal_reminder: function (p) {
+      if (p.kind === "coop") {
+        return { label: "Need “" + p.title + "” again? That Co-Op closed about a month ago.", href: "pooling.html" };
+      }
+      return { label: "Need this again? An Exchange post was fulfilled about a month ago: “" + p.body_snippet + "…”", href: "member-portal.html?view=deal" };
+    },
   };
 
   async function loadNotifications() {
@@ -53,7 +59,12 @@
         (isRead ? "" : '<span class="active-thread-unread" aria-hidden="true" title="Unread" style="margin-top:0.4rem;"></span>') +
         "<span>" + escapeHtml(meta.label) + "</span></a>" +
         '<p class="settings-note">' + new Date(n.created_at).toLocaleString() + "</p>" +
+        '<div style="display:flex; gap:0.5rem;">' +
+        (n.type === "renewal_reminder"
+          ? '<button type="button" class="btn btn-primary btn-sm" data-action="repost" data-kind="' + (n.payload.kind || "exchange") + '" data-target-id="' + (n.payload.post_id || n.payload.pooling_thread_id) + '" data-id="' + n.id + '">Repost</button>'
+          : "") +
         (isRead ? "" : '<button type="button" class="btn btn-outline btn-sm" data-action="mark-read" data-id="' + n.id + '">Mark as read</button>') +
+        "</div>" +
         "</article>"
       );
     }).join("");
@@ -97,12 +108,32 @@
     await loadNotifications();
 
     document.getElementById("notifications-list").addEventListener("click", function (e) {
-      var btn = e.target.closest('[data-action="mark-read"]');
-      if (!btn) return;
-      e.preventDefault();
-      sb.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", btn.dataset.id).then(function () {
-        loadNotifications();
-      });
+      var readBtn = e.target.closest('[data-action="mark-read"]');
+      var repostBtn = e.target.closest('[data-action="repost"]');
+
+      if (readBtn) {
+        e.preventDefault();
+        sb.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", readBtn.dataset.id).then(function () {
+          loadNotifications();
+        });
+        return;
+      }
+
+      if (repostBtn) {
+        e.preventDefault();
+        repostBtn.disabled = true;
+        var isCoop = repostBtn.dataset.kind === "coop";
+        var rpcName = isCoop ? "repost_pooling_thread" : "repost_rfp_post";
+        var rpcArg = isCoop ? { p_thread_id: repostBtn.dataset.targetId } : { p_post_id: repostBtn.dataset.targetId };
+        sb.rpc(rpcName, rpcArg).then(function (res) {
+          if (res.error) {
+            repostBtn.disabled = false;
+            window.alert("Couldn't repost: " + res.error.message);
+            return;
+          }
+          window.location.href = isCoop ? "pooling.html?id=" + res.data : "member-portal.html?view=deal";
+        });
+      }
     });
 
     document.getElementById("mark-all-read-btn").addEventListener("click", function () {

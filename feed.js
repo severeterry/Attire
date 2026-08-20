@@ -15,7 +15,7 @@
   var feedItems = [];
   var likedPostIds = new Set();
   var openComments = new Set();
-  var filterState = { sort: "newest" };
+  var filterState = { sort: "newest", type: "all" };
   var exchangeResponseCounts = {};
 
   // Public response counts — the count is visible to everyone, the thread
@@ -64,7 +64,7 @@
   async function fetchPosts() {
     var res = await sb
       .from("posts")
-      .select("id, body, created_at, author_id, profiles!posts_author_id_fkey(org_name, contact_name, category, avatar_url, tier), post_likes(count), post_comments(count)")
+      .select("id, body, created_at, author_id, post_kind, event_at, collab_skills_needed, collab_timeline, profiles!posts_author_id_fkey(org_name, contact_name, category, avatar_url, tier), post_likes(count), post_comments(count)")
       .order("created_at", { ascending: false });
     if (res.error) { console.error(res.error); return []; }
     return res.data;
@@ -192,6 +192,13 @@
         return item.body.toLowerCase().indexOf(query) !== -1 || name.indexOf(query) !== -1;
       });
     }
+    if (filterState.type && filterState.type !== "all") {
+      list = list.filter(function (item) {
+        if (item.source === "exchange") return filterState.type === "exchange";
+        if (item.source === "coop") return filterState.type === "coop";
+        return (item.raw.post_kind || "update") === filterState.type;
+      });
+    }
     if (filterState.sort === "oldest") {
       list.sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); });
     } else if (filterState.sort === "most-relevant") {
@@ -255,9 +262,25 @@
     var commentCount = commentCountOf(post);
     var liked = likedPostIds.has(post.id);
     var isOpen = openComments.has(post.id);
+    var kind = post.post_kind || "update";
+    var kindBadge = kind === "event"
+      ? '<span class="post-type-flag post-type-flag--exchange">Event</span>'
+      : kind === "collab"
+        ? '<span class="post-type-flag post-type-flag--coop">Looking to collab</span>'
+        : "";
+    var structuredHtml = "";
+    if (kind === "event" && post.event_at) {
+      structuredHtml = '<p class="settings-note" style="margin:0.3rem 0 0;"><strong>When:</strong> ' + escapeHtml(new Date(post.event_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })) + "</p>";
+    } else if (kind === "collab" && (post.collab_skills_needed || post.collab_timeline)) {
+      structuredHtml =
+        (post.collab_skills_needed ? '<p class="settings-note" style="margin:0.3rem 0 0;"><strong>Needed:</strong> ' + escapeHtml(post.collab_skills_needed) + "</p>" : "") +
+        (post.collab_timeline ? '<p class="settings-note" style="margin:0.15rem 0 0;"><strong>Timeline:</strong> ' + escapeHtml(post.collab_timeline) + "</p>" : "");
+    }
+    var likeLabel = kind === "event" ? "Interested" : "Like";
 
     return (
       '<article class="post-card" data-id="' + post.id + '">' +
+      (kindBadge ? '<div class="post-type-flag-slot">' + kindBadge + "</div>" : "") +
       '<div class="post-head">' +
       '<a href="' + authorLink + '">' + avatarHtml(name, author.category, author.avatar_url) + "</a>" +
       "<div>" +
@@ -265,11 +288,16 @@
       '<div class="post-meta-row"><span>' + relativeTime(new Date(post.created_at).getTime()) + " ago</span></div>" +
       "</div></div>" +
       '<p class="post-body">' + escapeHtml(post.body) + "</p>" +
+      structuredHtml +
       '<div class="post-actions">' +
-      '<button type="button" class="post-action-icon" data-action="like" data-id="' + post.id + '" aria-pressed="' + liked + '" aria-label="Like">' +
-      (liked
-        ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>'
-        : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>') +
+      '<button type="button" class="post-action-icon" data-action="like" data-id="' + post.id + '" aria-pressed="' + liked + '" aria-label="' + likeLabel + '">' +
+      (kind === "event"
+        ? (liked
+          ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>'
+          : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>')
+        : (liked
+          ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>'
+          : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.6C.86 9.4 2 5.5 5.6 4.6c2.06-.5 3.9.4 5 2.05a.5.5 0 0 0 .8 0c1.1-1.65 2.94-2.55 5-2.05 3.6.9 4.74 4.8 2.93 7.8C18.7 16.65 12 21 12 21z"/></svg>')) +
       "<span>" + likeCount + "</span></button>" +
       '<button type="button" class="post-action-icon" data-action="toggle-comments" data-id="' + post.id + '" aria-label="Toggle comments">' +
       '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
@@ -358,6 +386,24 @@
     var composerForm = document.getElementById("feed-composer-form");
     var composerError = document.getElementById("feed-composer-error");
     var composerTextarea = document.getElementById("feed-composer-textarea");
+    var composerKindPills = document.getElementById("composer-kind-pills");
+    var composerEventFields = document.getElementById("composer-event-fields");
+    var composerCollabFields = document.getElementById("composer-collab-fields");
+    var composerEventAt = document.getElementById("composer-event-at");
+    var composerCollabSkills = document.getElementById("composer-collab-skills");
+    var composerCollabTimeline = document.getElementById("composer-collab-timeline");
+    var composerKind = "update";
+
+    composerKindPills.addEventListener("click", function (e) {
+      var pill = e.target.closest(".cat-pill");
+      if (!pill) return;
+      composerKind = pill.getAttribute("data-kind");
+      composerKindPills.querySelectorAll(".cat-pill").forEach(function (p) {
+        p.setAttribute("aria-pressed", String(p === pill));
+      });
+      composerEventFields.hidden = composerKind !== "event";
+      composerCollabFields.hidden = composerKind !== "collab";
+    });
 
     composerForm.addEventListener("submit", function (e) {
       e.preventDefault();
@@ -367,7 +413,16 @@
       var submitBtn = composerForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
 
-      sb.from("posts").insert({ author_id: profile.id, body: body }).then(function (res) {
+      var payload = { author_id: profile.id, body: body, post_kind: composerKind };
+      if (composerKind === "event" && composerEventAt.value) {
+        payload.event_at = new Date(composerEventAt.value).toISOString();
+      }
+      if (composerKind === "collab") {
+        if (composerCollabSkills.value.trim()) payload.collab_skills_needed = composerCollabSkills.value.trim();
+        if (composerCollabTimeline.value.trim()) payload.collab_timeline = composerCollabTimeline.value.trim();
+      }
+
+      sb.from("posts").insert(payload).then(function (res) {
         submitBtn.disabled = false;
         if (res.error) {
           composerError.textContent = res.error.message;
@@ -375,8 +430,28 @@
           return;
         }
         composerTextarea.value = "";
+        composerEventAt.value = "";
+        composerCollabSkills.value = "";
+        composerCollabTimeline.value = "";
+        composerKind = "update";
+        composerKindPills.querySelectorAll(".cat-pill").forEach(function (p) {
+          p.setAttribute("aria-pressed", String(p.getAttribute("data-kind") === "update"));
+        });
+        composerEventFields.hidden = true;
+        composerCollabFields.hidden = true;
         loadFeedItems().then(function () { renderFeed(); renderRecent(); });
       });
+    });
+
+    var feedTypePills = document.getElementById("feed-type-pills");
+    feedTypePills.addEventListener("click", function (e) {
+      var pill = e.target.closest(".cat-pill");
+      if (!pill) return;
+      filterState.type = pill.getAttribute("data-type");
+      feedTypePills.querySelectorAll(".cat-pill").forEach(function (p) {
+        p.setAttribute("aria-pressed", String(p === pill));
+      });
+      renderFeed();
     });
 
     document.getElementById("feed-sort-select").addEventListener("change", function (e) {

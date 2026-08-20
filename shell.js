@@ -53,6 +53,12 @@
     pool_terms_updated: function (p) { return { label: "The organizer updated this Co-Op's terms", href: "pooling.html?id=" + p.pooling_thread_id }; },
     pool_closing_soon: function (p) { return { label: "A Co-Op you joined is closing soon", href: "pooling.html?id=" + p.pooling_thread_id }; },
     weekly_digest: function () { return { label: "Your weekly Exchange digest is ready", href: "member-portal.html?view=deal" }; },
+    renewal_reminder: function (p) {
+      if (p.kind === "coop") {
+        return { label: "Need “" + p.title + "” again? That Co-Op closed about a month ago.", href: "pooling.html" };
+      }
+      return { label: "Need this again? An Exchange post was fulfilled about a month ago: “" + p.body_snippet + "…”", href: "member-portal.html?view=deal" };
+    },
   };
 
   // Aggregates every real, active thread the caller is in — plain DMs,
